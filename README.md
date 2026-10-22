@@ -160,7 +160,7 @@ godot-shield/
 
 ## License
 
-MIT License — see [LICENSE](LICENSE). Copyright (c) 2025 Godot Shield.
+MIT License — see [LICENSE](LICENSE). Copyright (c) 2026 Godot Shield.
 
 ## Credits
 
