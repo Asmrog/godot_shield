@@ -1,5 +1,5 @@
 # Godot Shield
-
+![Godot Shield GUI](screenshot.png) 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Automated protection for Godot games — obfuscation + encryption.**
