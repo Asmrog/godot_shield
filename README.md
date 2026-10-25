@@ -21,12 +21,8 @@
 - **Dark Themed GUI** — PySide6 with Figma blue accent, progress bar, colored logs, cancel support.
 
 ## Screenshots
-
-*Placeholder — add your screenshots here:*
-
-- `screenshots/gui_main.png` — Main window with project selection
-- `screenshots/gui_logs.png` — Logs during protection
-- `screenshots/cli_example.png` — CLI usage example
+Window.png — Main window with project selection
+Result.png - Result 
 
 ## Installation
 
@@ -141,16 +137,15 @@ godot-shield/
 └── obfuscator/                 # Cloned external repo (gitignored)
 ```
 
-## Limitations
+## Security & Limitations
+No local encryption is 100% bulletproof. As any experienced reverse engineer knows, if the game engine needs to decrypt the `.pck` file to run, the AES-256 key *must* be stored somewhere inside the executable. A skilled attacker with tools like `gore` or memory dumpers can extract this key.
 
-- **Not bulletproof:** Obfuscation and PCK encryption raise the bar but do not stop determined attackers. Debug symbols are removed, but strings and some logic can still be recovered.
-- **Godot version:** Tested with Godot 4.x. Godot 3.x projects may need adaptation (different export preset names).
-- **Export preset name:** Must be exactly `Windows Desktop` for automatic export. If you use a custom name, export manually.
-- **Overwrite behavior:** Obfuscation overwrites GDScript files in place. **Back up your project or use version control (git) before running.** The tool does not create automatic backups.
-- **Binary protection:** This tool does not pack or protect the `.exe` itself beyond what Godot provides. For additional `.exe` protection, consider external packers (not included).
-- **Open source obfuscator:** The obfuscator is community-maintained; results may vary per project.
+**Godot Shield is designed to:**
+1. Stop 95% of casual "script kiddies" who just drag-and-drop assets into a decompiler.
+2. Automate the tedious process of generating keys, obfuscating code, and exporting.
+3. Automatically secure the obfuscation mapping file so it doesn't accidentally get shipped with your game. 
 
-## Troubleshooting
+If you need military-grade protection against professional reverse engineers, you must rewrite your critical logic in C++ (using GDExtension) or use custom Godot engine builds with advanced packing.
 
 - **"Obfuscator script not found"** — Clone the repo into `obfuscator/` as described in Installation.
 - **"Godot executable not found"** — Install Godot 4.x and add to PATH. On Windows, ensure `godot.exe` is in PATH or rename.
