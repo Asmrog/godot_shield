@@ -212,6 +212,14 @@ def protect_project(
 
         progress("Obfuscation completed", 60)
         logger("Obfuscation step completed.", "success")
+        # Cleanup: Delete obfuscation mapping file for security
+        map_file = project_path.parent / f"{project_path.name}_obfuscation_data.json"
+        if map_file.exists():
+            try:
+                map_file.unlink()
+                logger("Security: Deleted obfuscation mapping file.", "success")
+            except Exception as e:
+                logger(f"Warning: Could not delete mapping file {map_file}: {e}", "warning")
 
         # ------------------------------------------------------------------
         # Step 4: Export (only for standard level)
