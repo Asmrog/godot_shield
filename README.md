@@ -20,10 +20,6 @@
 - **Cross-Platform** — Primary target Windows, works on Linux/macOS.
 - **Dark Themed GUI** — PySide6 with Figma blue accent, progress bar, colored logs, cancel support.
 
-## Screenshots
-Window.png — Main window with project selection
-Result.png - Result 
-
 ## Installation
 
 ```bash
