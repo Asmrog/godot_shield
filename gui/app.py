@@ -34,138 +34,79 @@ from core.protector import ProtectionResult
 from core.utils import find_obfuscator_script, is_valid_godot_project
 from gui.widgets import ColoredLogView
 from gui.workers import ProtectionWorker
-
-# Dark theme QSS stylesheet
+#Dark QSS Mode
 DARK_QSS = """
-QMainWindow {
-    background-color: #1E1E1E;
-}
+/* Global */
+QMainWindow { background-color: #1e1e1e; }
 QWidget {
-    background-color: #1E1E1E;
-    color: #D4D4D4;
-    font-family: "Segoe UI";
-    font-size: 12px;
-}
-QLabel {
-    background-color: transparent;
-}
-QLabel#HeaderTitle {
-    font-size: 22px;
-    font-weight: bold;
-    color: #FFFFFF;
-}
-QLabel#HeaderSubtitle {
-    font-size: 12px;
-    color: #A0A0A0;
-}
-QLabel#InvalidLabel {
-    color: #F44747;
-    font-size: 11px;
-}
-QLabel#HintLabel {
-    color: #8A8A8A;
-    font-size: 11px;
-}
-QLabel#FooterLabel {
-    color: #6A6A6A;
-    font-size: 10px;
-}
-QFrame, QGroupBox {
-    background-color: #2C2C2C;
-    border: 1px solid #3A3A3A;
-    border-radius: 6px;
-}
-QLineEdit {
-    background-color: #2C2C2C;
-    border: 1px solid #3A3A3A;
-    border-radius: 4px;
-    padding: 6px 8px;
-    color: #D4D4D4;
-}
-QLineEdit:focus {
-    border: 1px solid #0D99FF;
-}
-QLineEdit:disabled {
-    background-color: #252525;
-    color: #6A6A6A;
-}
-QComboBox {
-    background-color: #2C2C2C;
-    border: 1px solid #3A3A3A;
-    border-radius: 4px;
-    padding: 6px 8px;
-    min-height: 18px;
-}
-QComboBox:hover {
-    border: 1px solid #0D99FF;
-}
-QComboBox::drop-down {
-    border: none;
-}
-QComboBox QAbstractItemView {
-    background-color: #2C2C2C;
-    border: 1px solid #3A3A3A;
-    selection-background-color: #0D99FF;
-}
-QPushButton {
-    background-color: #3A3A3A;
-    border: 1px solid #4A4A4A;
-    border-radius: 6px;
-    padding: 8px 16px;
-    color: #D4D4D4;
-}
-QPushButton:hover {
-    background-color: #4A4A4A;
-    border: 1px solid #5A5A5A;
-}
-QPushButton:pressed {
-    background-color: #2A2A2A;
-}
-QPushButton:disabled {
-    background-color: #252525;
-    color: #6A6A6A;
-    border: 1px solid #2A2A2A;
-}
-QPushButton#PrimaryButton {
-    background-color: #0D99FF;
-    color: #FFFFFF;
-    font-weight: bold;
-    border: 1px solid #0D99FF;
-    padding: 10px 20px;
+    color: #cccccc;
+    font-family: "Segoe UI", "Inter", sans-serif;
     font-size: 13px;
 }
-QPushButton#PrimaryButton:hover {
-    background-color: #1AA3FF;
-    border: 1px solid #1AA3FF;
-}
-QPushButton#PrimaryButton:pressed {
-    background-color: #0A7ACC;
-}
-QPushButton#PrimaryButton:disabled {
-    background-color: #2A4A5A;
-    color: #6A8A9A;
-    border: 1px solid #2A4A5A;
-}
-QProgressBar {
-    background-color: #2C2C2C;
-    border: 1px solid #3A3A3A;
-    border-radius: 4px;
-    text-align: center;
-    color: #D4D4D4;
-    height: 18px;
-}
-QProgressBar::chunk {
-    background-color: #0D99FF;
-    border-radius: 3px;
-}
-QPlainTextEdit {
-    background-color: #1E1E1E;
-    border: 1px solid #3A3A3A;
+QLabel { background: transparent; }
+
+/* Headers */
+QLabel#HeaderTitle { font-size: 26px; font-weight: 800; color: #ffffff; margin-bottom: 2px; }
+QLabel#HeaderSubtitle { font-size: 13px; color: #858585; margin-bottom: 15px; }
+QLabel#SectionLabel { font-size: 11px; font-weight: 700; color: #0d99ff; text-transform: uppercase; margin-top: 10px; }
+
+/* Inputs & ComboBox */
+QLineEdit, QComboBox {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
     border-radius: 6px;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 11px;
-    color: #D4D4D4;
-    padding: 4px;
+    padding: 8px 12px;
+    color: #ffffff;
+    selection-background-color: #0d99ff;
+}
+QLineEdit:focus, QComboBox:focus { border: 1px solid #0d99ff; }
+QComboBox::drop-down { border: none; width: 20px; }
+
+/* Buttons */
+QPushButton {
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 8px 16px;
+    color: #cccccc;
+    font-weight: 600;
+}
+QPushButton:hover { background-color: #3e3e42; border: 1px solid #4e4e52; }
+QPushButton:pressed { background-color: #1e1e1e; }
+QPushButton:disabled { background-color: #1e1e1e; color: #555555; border: 1px solid #2d2d30; }
+
+/* Primary Button (Protect) */
+QPushButton#PrimaryButton {
+    background-color: #0d99ff;
+    color: #ffffff;
+    border: none;
+    font-size: 14px;
+    padding: 12px 20px;
+    font-weight: 700;
+}
+QPushButton#PrimaryButton:hover { background-color: #1aa3ff; }
+QPushButton#PrimaryButton:disabled { background-color: #1a4a6e; color: #88aadd; }
+
+/* Progress Bar */
+QProgressBar {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    text-align: center;
+    color: transparent;
+    height: 12px;
+}
+QProgressBar::chunk { background-color: #0d99ff; border-radius: 5px; }
+
+/* Log View */
+QPlainTextEdit {
+    background-color: #1e1e1e;
+    border: 1px solid #2d2d30;
+    border-radius: 8px;
+    font-family: "Consolas", monospace;
+    font-size: 12px;
+    color: #d4d4d4;
+    padding: 10px;
 }
 """
 
@@ -250,18 +191,30 @@ class MainWindow(QMainWindow):
         output_row.addWidget(self.output_browse_btn)
         main_layout.addLayout(output_row)
 
-        # 5. Action row
+        
+        # 5. Action row        
         action_row = QHBoxLayout()
+        self.check_btn = QPushButton("Check Tools")
+        self.check_btn.setToolTip("Verify Godot and Obfuscator are installed")
+        self.check_btn.clicked.connect(self._check_tools)
+        
         self.protect_btn = QPushButton("Protect Game")
         self.protect_btn.setObjectName("PrimaryButton")
         self.protect_btn.setMinimumHeight(40)
+        
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setEnabled(False)
-        self.cancel_btn.setMinimumHeight(40)
-        action_row.addWidget(self.protect_btn, 1)
-        action_row.addWidget(self.cancel_btn)
-        main_layout.addLayout(action_row)
+        
+        self.open_folder_btn = QPushButton("Open Output Folder")
+        self.open_folder_btn.setEnabled(False) # Hidden until success
+        self.open_folder_btn.clicked.connect(self._open_output_folder)
 
+        action_row.addWidget(self.check_btn)
+        action_row.addWidget(self.protect_btn, 1) 
+        action_row.addWidget(self.cancel_btn)
+        action_row.addWidget(self.open_folder_btn)
+        main_layout.addLayout(action_row) 
+        
         # 6. Progress bar + status label
         progress_row = QHBoxLayout()
         self.progress_bar = QProgressBar()
@@ -465,6 +418,7 @@ class MainWindow(QMainWindow):
 
             self.protect_btn.setEnabled(False)
             self.cancel_btn.setEnabled(True)
+            self.open_folder_btn.setEnabled(False)
             self.project_browse_btn.setEnabled(False)
             self.output_browse_btn.setEnabled(False)
             self.level_combo.setEnabled(False)
@@ -524,6 +478,8 @@ class MainWindow(QMainWindow):
         """Handle completion of protection pipeline."""
         try:
             self._reset_ui_after_finish()
+            if result.success and result.output_path:
+                self.open_folder_btn.setEnabled(True)
 
             if result.success:
                 self.progress_bar.setValue(100)
@@ -587,6 +543,31 @@ class MainWindow(QMainWindow):
             self._worker = None
         except Exception:
             pass
+
+
+    def _check_tools(self) -> None:
+        """Checks if Godot and Obfuscator are installed."""
+        from core.utils import find_godot_executable, find_obfuscator_script
+        
+        self.log_view.clear_log()
+        self.log_view.append_colored("=== Checking Tools ===", "info")
+        
+        godot = find_godot_executable()
+        if godot:
+            self.log_view.append_colored(f"Godot found: {godot}", "success")
+        else:
+            self.log_view.append_colored("Godot not found in PATH!", "error")
+            
+        obf = find_obfuscator_script()
+        if obf:
+            self.log_view.append_colored(f"✅ Obfuscator found: {obf}", "success")
+        else:
+            self.log_view.append_colored("❌ Obfuscator not found.", "error")
+
+    def _open_output_folder(self) -> None:
+        """Opens the folder containing the exported game."""
+        if self._output_path and self._output_path.parent.exists():
+            self._open_folder(self._output_path.parent)
 
     def _open_folder(self, folder: Path) -> None:
         """Open folder in file explorer (cross-platform)."""
