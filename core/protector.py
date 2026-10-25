@@ -212,15 +212,19 @@ def protect_project(
 
         progress("Obfuscation completed", 60)
         logger("Obfuscation step completed.", "success")
-        # Cleanup: Delete obfuscation mapping file for security
+        
+        # Cleanup: Move obfuscation mapping file to a safe backup folder
         map_file = project_path.parent / f"{project_path.name}_obfuscation_data.json"
         if map_file.exists():
             try:
-                map_file.unlink()
-                logger("Security: Deleted obfuscation mapping file.", "success")
+                backup_dir = project_path.parent / ".godot_shield_backups"
+                backup_dir.mkdir(exist_ok=True)
+                import shutil
+                safe_map_path = backup_dir / map_file.name
+                shutil.move(str(map_file), str(safe_map_path))
+                logger(f"Security: Mapping file moved to safe backup: {safe_map_path}", "success")
             except Exception as e:
-                logger(f"Warning: Could not delete mapping file {map_file}: {e}", "warning")
-
+                logger(f"Warning: Could not secure mapping file {map_file}: {e}", "warning") 
         # ------------------------------------------------------------------
         # Step 4: Export (only for standard level)
         # ------------------------------------------------------------------
