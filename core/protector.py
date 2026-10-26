@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
+import shutil
+from datetime import datetime
 
 from .exporter import export_game
 from .obfuscator import run_obfuscation
@@ -162,30 +164,16 @@ def protect_project(
 
         progress("Project validated", 10)
 
-        # ------------------------------------------------------------------
-        # Step 2: Generate encryption key
-        # ------------------------------------------------------------------
-         progress("Generating encryption key", 15)
-         if custom_password:
+        # Step 2: Key
+        progress("Generating encryption key", 15)
+        if custom_password:
             logger("Deriving AES-256 key from your custom password...", "info")
             encryption_key = generate_key_from_password(custom_password)
-         else:
-             logger("Generating random AES-256 key...", "info")
-             encryption_key = generate_encryption_key()
+        else:
+            logger("Generating random AES-256 key...", "info")
+            encryption_key = generate_encryption_key()
         key_generated = True
         logger("Encryption key ready.", "success")
-            # Never log the actual key value
-        except Exception as exc:
-            error_msg = f"Failed to generate encryption key: {exc}"
-            logger(error_msg, "error")
-            return ProtectionResult(
-                success=False,
-                key_generated=False,
-                obfuscated=False,
-                exported=False,
-                output_path=None,
-                error_message=error_msg,
-            )
 
         progress("Key generated", 20)
 
