@@ -38,6 +38,7 @@ class ProtectionWorker(QThread):
         project_path: Path,
         level: str,
         output_path: Optional[Path] = None,
+        custom_password: Optional[str] = None,
         parent=None,
     ) -> None:
         """
@@ -47,12 +48,14 @@ class ProtectionWorker(QThread):
             project_path: Path to Godot project root.
             level: Protection level ("basic" or "standard").
             output_path: Optional output exe path for standard level.
+            custom_password: Optional password for AES encryption.
             parent: Optional parent QObject.
         """
         super().__init__(parent)
         self.project_path = Path(project_path)
         self.level = level
         self.output_path = Path(output_path) if output_path else None
+        self.custom_password = custom_password  # <--- إضافة جديدة
         # Cooperative cancellation flag — checked between pipeline steps
         self._cancelled = False
 
@@ -111,6 +114,7 @@ class ProtectionWorker(QThread):
                 project_path=self.project_path,
                 level=self.level,
                 output_path=self.output_path,
+                custom_password=self.custom_password, 
                 progress=progress_callback,
                 logger=logger_callback,
             )
