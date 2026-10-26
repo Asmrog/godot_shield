@@ -166,10 +166,10 @@ def version_command() -> None:
     Show version and license information.
     """
     try:
-        console.print("Godot Shield v1.0.0 — MIT License")
+        console.print("Godot Shield v1.0.2 — MIT License")
     except Exception:
         # Fallback if Rich fails
-        print("Godot Shield v1.0.0 — MIT License")
+        print("Godot Shield v1.0.2 — MIT License")
 
 
 if __name__ == "__main__":
