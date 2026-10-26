@@ -191,6 +191,13 @@ class MainWindow(QMainWindow):
         output_row.addWidget(self.output_browse_btn)
         main_layout.addLayout(output_row)
 
+        # 4.5 Custom Password (Optional)
+        self.password_label = QLabel("Custom Password (Optional):")
+        main_layout.addWidget(self.password_label)
+        self.password_edit = QLineEdit()
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_edit.setPlaceholderText("Leave empty to auto-generate a random key...")
+        main_layout.addWidget(self.password_edit) 
         
         # 5. Action row        
         action_row = QHBoxLayout()
@@ -415,7 +422,7 @@ class MainWindow(QMainWindow):
         try:
             if not self._validate_inputs():
                 return
-
+            
             self.protect_btn.setEnabled(False)
             self.cancel_btn.setEnabled(True)
             self.open_folder_btn.setEnabled(False)
@@ -430,7 +437,8 @@ class MainWindow(QMainWindow):
 
             level = self.level_combo.currentText().lower()
             output = self._output_path if level == "standard" else None
-
+            
+            custom_password = self.password_edit.text().strip() or None
             self._worker = ProtectionWorker(
                 project_path=self._project_path,
                 level=level,
