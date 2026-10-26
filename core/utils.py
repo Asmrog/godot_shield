@@ -12,6 +12,7 @@ import secrets
 import shutil
 from pathlib import Path
 from typing import Optional
+import hashlib
 
 
 def generate_encryption_key() -> str:
@@ -133,7 +134,13 @@ def format_size(num_bytes: int | float) -> str:
         # Fallback if input is invalid
         return f"{num_bytes} B"
 
-
+def generate_key_from_password(password: str) -> str:
+    """Derives a 64-char hex key (256-bit) from a user password."""
+    if not password:
+        return secrets.token_hex(32) 
+    # Use SHA-256 to hash the password into a 32-byte key
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+    
 def ensure_output_dir(path: Path) -> Path:
     """
     Ensure the output directory exists, creating it if necessary.
