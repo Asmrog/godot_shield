@@ -52,6 +52,7 @@ def protect_project(
     project_path: Path,
     level: str = "basic",
     output_path: Optional[Path] = None,
+    custom_password: Optional[str] = None,  # <--- تم إضافة هذا السطر لحل المشكلة
     progress: Optional[Callable[[str, int], None]] = None,
     logger: Optional[Callable[[str, str], None]] = None,
 ) -> ProtectionResult:
@@ -60,9 +61,10 @@ def protect_project(
 
     Pipeline steps:
       1. Validate project path
-      2. Generate AES-256 encryption key
-      3. Obfuscate GDScript source (always)
-      4. Export encrypted build only if level == "standard"
+      2. Generate AES-256 encryption key (or derive from password)
+      3. Create automatic backup
+      4. Obfuscate GDScript source
+      5. Export encrypted build only if level == "standard"
 
     Args:
         project_path: Path to the Godot project root.
@@ -70,6 +72,7 @@ def protect_project(
                (obfuscation + encrypted export).
         output_path: Desired output .exe path for standard level.
                      If None, defaults to <project>/build/game.exe.
+        custom_password: Optional password used to derive the AES-256 key.
         progress: Callback accepting (step_name, percent) for UI updates.
         logger: Callback accepting (message, severity) where severity is
                 "info", "success", "warning", "error".
@@ -164,7 +167,9 @@ def protect_project(
 
         progress("Project validated", 10)
 
-        # Step 2: Key
+        # ------------------------------------------------------------------
+        # Step 2: Key Generation
+        # ------------------------------------------------------------------
         progress("Generating encryption key", 15)
         if custom_password:
             logger("Deriving AES-256 key from your custom password...", "info")
@@ -172,10 +177,29 @@ def protect_project(
         else:
             logger("Generating random AES-256 key...", "info")
             encryption_key = generate_encryption_key()
+        
         key_generated = True
         logger("Encryption key ready.", "success")
-
         progress("Key generated", 20)
+
+        # ------------------------------------------------------------------
+        # Step 2.5: Create Automatic Backup
+        # ------------------------------------------------------------------
+        progress("Creating backup", 22)
+        logger("Creating project backup for safety...", "info")
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_dir = project_path.parent / ".godot_shield_backups"
+            backup_dir.mkdir(exist_ok=True)
+            backup_path = backup_dir / f"{project_path.name}_backup_{timestamp}"
+            
+            # Ignore heavy/irrelevant folders
+            ignore_list = shutil.ignore_patterns('.godot', '.git', '__pycache__', 'build')
+            shutil.copytree(project_path, backup_path, ignore=ignore_list)
+            
+            logger(f"✅ Backup created successfully at: {backup_path}", "success")
+        except Exception as e:
+            logger(f"⚠️ Failed to create backup: {e}", "warning")
 
         # ------------------------------------------------------------------
         # Step 3: Obfuscate GDScript
@@ -205,18 +229,20 @@ def protect_project(
         progress("Obfuscation completed", 60)
         logger("Obfuscation step completed.", "success")
         
-        # Cleanup: Move obfuscation mapping file to a safe backup folder
+        # ------------------------------------------------------------------
+        # Secure Mapping File
+        # ------------------------------------------------------------------
         map_file = project_path.parent / f"{project_path.name}_obfuscation_data.json"
         if map_file.exists():
             try:
                 backup_dir = project_path.parent / ".godot_shield_backups"
                 backup_dir.mkdir(exist_ok=True)
-                import shutil
                 safe_map_path = backup_dir / map_file.name
                 shutil.move(str(map_file), str(safe_map_path))
                 logger(f"Security: Mapping file moved to safe backup: {safe_map_path}", "success")
             except Exception as e:
                 logger(f"Warning: Could not secure mapping file {map_file}: {e}", "warning") 
+                
         # ------------------------------------------------------------------
         # Step 4: Export (only for standard level)
         # ------------------------------------------------------------------
