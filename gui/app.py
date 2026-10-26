@@ -244,7 +244,7 @@ class MainWindow(QMainWindow):
 
         # 8. Footer
         footer_layout = QHBoxLayout()
-        footer_left = QLabel("Godot Shield v1.0.0 — MIT License")
+        footer_left = QLabel("Godot Shield v1.0.2 — MIT License")
         footer_left.setObjectName("FooterLabel")
         footer_right = QLabel(
             '<a href="https://github.com/June-Tree/Godot-Source-Code-Obfuscator" '
@@ -598,7 +598,7 @@ class MainWindow(QMainWindow):
             QMessageBox.about(
                 self,
                 "About Godot Shield",
-                "Godot Shield v0.1.0\n"
+                "Godot Shield v1.0.2\n"
                 "MIT License\n\n"
                 "Automated protection for Godot games — obfuscation + encryption.\n\n"
                 "Features:\n"
