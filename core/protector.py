@@ -20,6 +20,7 @@ from .utils import (
     find_obfuscator_script,
     generate_encryption_key,
     is_valid_godot_project,
+    generate_key_from_password,
 )
 
 
@@ -164,12 +165,15 @@ def protect_project(
         # ------------------------------------------------------------------
         # Step 2: Generate encryption key
         # ------------------------------------------------------------------
-        progress("Generating encryption key", 15)
-        logger("Generating AES-256 encryption key...", "info")
-        try:
-            encryption_key = generate_encryption_key()
-            key_generated = True
-            logger("Encryption key generated (64-char hex, 256-bit).", "success")
+         progress("Generating encryption key", 15)
+         if custom_password:
+            logger("Deriving AES-256 key from your custom password...", "info")
+            encryption_key = generate_key_from_password(custom_password)
+         else:
+             logger("Generating random AES-256 key...", "info")
+             encryption_key = generate_encryption_key()
+        key_generated = True
+        logger("Encryption key ready.", "success")
             # Never log the actual key value
         except Exception as exc:
             error_msg = f"Failed to generate encryption key: {exc}"
