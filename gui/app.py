@@ -309,11 +309,36 @@ class MainWindow(QMainWindow):
         try:
             menubar = self.menuBar()
 
+            # --- File Menu ---
             file_menu = menubar.addMenu("File")
+
+            open_proj_action = QAction("Open Project...", self)
+            open_proj_action.setShortcut("Ctrl+O")
+            open_proj_action.triggered.connect(self._browse_project)
+            file_menu.addAction(open_proj_action)
+
+            open_backup_action = QAction("Open Backup Folder", self)
+            open_backup_action.triggered.connect(self._open_backup_folder)
+            file_menu.addAction(open_backup_action)
+
+            save_logs_action = QAction("Save Logs...", self)
+            save_logs_action.setShortcut("Ctrl+S")
+            save_logs_action.triggered.connect(self._save_logs)
+            file_menu.addAction(save_logs_action)
+
+            file_menu.addSeparator()
+
+            clear_action = QAction("Clear Session", self)
+            clear_action.triggered.connect(self._clear_session)
+            file_menu.addAction(clear_action)
+
+            file_menu.addSeparator()
+
             exit_action = QAction("Exit", self)
             exit_action.triggered.connect(self.close)
             file_menu.addAction(exit_action)
 
+            # --- Help Menu ---
             help_menu = menubar.addMenu("Help")
             about_action = QAction("About", self)
             about_action.triggered.connect(self._show_about)
@@ -661,3 +686,49 @@ class MainWindow(QMainWindow):
             )
         except Exception:
             pass
+    def _clear_session(self) -> None:
+        """Resets the UI and clears all selections."""
+        try:
+            self._project_path = None
+            self._output_path = None
+            self.project_edit.clear()
+            self.output_edit.clear()
+            self.password_edit.clear()
+            self.log_view.clear_log()
+            self.progress_bar.setValue(0)
+            self.status_label.setText("Ready")
+            self.invalid_label.setVisible(False)
+            self.open_folder_btn.setEnabled(False)
+            self.protect_btn.setEnabled(True)
+            self.cancel_btn.setEnabled(False)
+            self.log_view.append_colored("Session cleared. Ready for new project.", "info")
+        except Exception as exc:
+            print(f"Error clearing session: {exc}")
+
+    def _open_backup_folder(self) -> None:
+        """Opens the .godot_shield_backups folder for the selected project."""
+        if not self._project_path:
+            QMessageBox.warning(self, "No Project", "Please select a project folder first.")
+            return
+            
+        backup_dir = self._project_path.parent / ".godot_shield_backups"
+        if backup_dir.exists():
+            self._open_folder(backup_dir)
+        else:
+            QMessageBox.information(self, "No Backups", "No backup folder found for this project yet. Run protection first to create one.")
+
+    def _save_logs(self) -> None:
+        """Saves the current log view to a text file."""
+        try:
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Logs",
+                "godot_shield_log.txt",
+                "Text Files (*.txt);;All Files (*)",
+            )
+            if file_path:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(self.log_view.toPlainText())
+                self.log_view.append_colored(f"Logs saved to: {file_path}", "success")
+        except Exception as exc:
+            QMessageBox.critical(self, "Error", f"Could not save logs: {exc}")
