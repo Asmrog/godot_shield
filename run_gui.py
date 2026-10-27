@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from PySide6.QtWidgets import QApplication, QSplashScreen
-from PySide6.QtGui import QPixmap, QColor, QPainter, QFont
+from PySide6.QtGui import QPixmap, QColor, QPainter, QFont,QIcon
 from PySide6.QtCore import Qt, QTimer
 
 from gui.app import DARK_QSS, MainWindow
@@ -19,6 +19,7 @@ def main() -> None:
     """Launch the Godot Shield GUI application with a splash screen."""
     try:
         app = QApplication(sys.argv)
+        app.setWindowIcon(QIcon("icon.ico"))
         try:
             app.setStyle("Fusion")
         except Exception:
