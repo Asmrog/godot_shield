@@ -34,7 +34,8 @@ from core.protector import ProtectionResult
 from core.utils import find_obfuscator_script, is_valid_godot_project
 from gui.widgets import ColoredLogView
 from gui.workers import ProtectionWorker
-#Dark QSS Mode
+
+# Dark QSS Mode
 DARK_QSS = """
 /* Global */
 QMainWindow { background-color: #1e1e1e; }
@@ -45,10 +46,33 @@ QWidget {
 }
 QLabel { background: transparent; }
 
+/* Menu Bar */
+QMenuBar {
+    background-color: #1e1e1e;
+    color: #cccccc;
+    padding: 2px;
+}
+QMenuBar::item {
+    background: transparent;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+QMenuBar::item:selected { background-color: #2d2d30; color: #ffffff; }
+QMenu {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    padding: 4px;
+}
+QMenu::item {
+    padding: 6px 24px 6px 12px;
+    border-radius: 4px;
+}
+QMenu::item:selected { background-color: #0d99ff; color: #ffffff; }
+
 /* Headers */
 QLabel#HeaderTitle { font-size: 26px; font-weight: 800; color: #ffffff; margin-bottom: 2px; }
 QLabel#HeaderSubtitle { font-size: 13px; color: #858585; margin-bottom: 15px; }
-QLabel#SectionLabel { font-size: 11px; font-weight: 700; color: #0d99ff; text-transform: uppercase; margin-top: 10px; }
 
 /* Inputs & ComboBox */
 QLineEdit, QComboBox {
@@ -62,7 +86,19 @@ QLineEdit, QComboBox {
 QLineEdit:focus, QComboBox:focus { border: 1px solid #0d99ff; }
 QComboBox::drop-down { border: none; width: 20px; }
 
-/* Buttons */
+/* Primary Button (Protect) */
+QPushButton#PrimaryButton {
+    background-color: #0d99ff;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+}
+QPushButton#PrimaryButton:hover { background-color: #1aa3ff; }
+QPushButton#PrimaryButton:disabled { background-color: #1a4a6e; color: #88aadd; }
+
+/* Secondary Buttons */
 QPushButton {
     background-color: #2d2d30;
     border: 1px solid #3e3e42;
@@ -75,18 +111,6 @@ QPushButton:hover { background-color: #3e3e42; border: 1px solid #4e4e52; }
 QPushButton:pressed { background-color: #1e1e1e; }
 QPushButton:disabled { background-color: #1e1e1e; color: #555555; border: 1px solid #2d2d30; }
 
-/* Primary Button (Protect) */
-QPushButton#PrimaryButton {
-    background-color: #0d99ff;
-    color: #ffffff;
-    border: none;
-    font-size: 14px;
-    padding: 12px 20px;
-    font-weight: 700;
-}
-QPushButton#PrimaryButton:hover { background-color: #1aa3ff; }
-QPushButton#PrimaryButton:disabled { background-color: #1a4a6e; color: #88aadd; }
-
 /* Progress Bar */
 QProgressBar {
     background-color: #252526;
@@ -94,13 +118,13 @@ QProgressBar {
     border-radius: 6px;
     text-align: center;
     color: transparent;
-    height: 12px;
+    height: 10px;
 }
 QProgressBar::chunk { background-color: #0d99ff; border-radius: 5px; }
 
 /* Log View */
 QPlainTextEdit {
-    background-color: #1e1e1e;
+    background-color: #181818;
     border: 1px solid #2d2d30;
     border-radius: 8px;
     font-family: "Consolas", monospace;
@@ -108,6 +132,21 @@ QPlainTextEdit {
     color: #d4d4d4;
     padding: 10px;
 }
+
+/* Scrollbars */
+QScrollBar:vertical {
+    border: none;
+    background: #1e1e1e;
+    width: 10px;
+    margin: 0px;
+}
+QScrollBar::handle:vertical {
+    background: #3e3e42;
+    min-height: 20px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical:hover { background: #555555; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 """
 
 
@@ -199,28 +238,35 @@ class MainWindow(QMainWindow):
         self.password_edit.setPlaceholderText("Leave empty to auto-generate a random key...")
         main_layout.addWidget(self.password_edit) 
         
-        # 5. Action row        
-        action_row = QHBoxLayout()
+        # 5. Action Rows (Primary vs Secondary)
+        # Row 1: Main Action
+        action_row1 = QHBoxLayout()
+        self.protect_btn = QPushButton("Protect Game")
+        self.protect_btn.setObjectName("PrimaryButton")
+        self.protect_btn.setMinimumHeight(45)
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setEnabled(False)
+        self.cancel_btn.setMinimumHeight(45)
+        
+        action_row1.addWidget(self.protect_btn, 1) 
+        action_row1.addWidget(self.cancel_btn)
+        main_layout.addLayout(action_row1)
+
+        # Row 2: Secondary Tools
+        action_row2 = QHBoxLayout()
         self.check_btn = QPushButton("Check Tools")
         self.check_btn.setToolTip("Verify Godot and Obfuscator are installed")
         self.check_btn.clicked.connect(self._check_tools)
         
-        self.protect_btn = QPushButton("Protect Game")
-        self.protect_btn.setObjectName("PrimaryButton")
-        self.protect_btn.setMinimumHeight(40)
-        
-        self.cancel_btn = QPushButton("Cancel")
-        self.cancel_btn.setEnabled(False)
-        
         self.open_folder_btn = QPushButton("Open Output Folder")
-        self.open_folder_btn.setEnabled(False) # Hidden until success
+        self.open_folder_btn.setEnabled(False) 
         self.open_folder_btn.clicked.connect(self._open_output_folder)
 
-        action_row.addWidget(self.check_btn)
-        action_row.addWidget(self.protect_btn, 1) 
-        action_row.addWidget(self.cancel_btn)
-        action_row.addWidget(self.open_folder_btn)
-        main_layout.addLayout(action_row) 
+        action_row2.addWidget(self.check_btn)
+        action_row2.addStretch() 
+        action_row2.addWidget(self.open_folder_btn)
+        main_layout.addLayout(action_row2)
         
         # 6. Progress bar + status label
         progress_row = QHBoxLayout()
@@ -245,7 +291,7 @@ class MainWindow(QMainWindow):
 
         # 8. Footer
         footer_layout = QHBoxLayout()
-        footer_left = QLabel("Godot Shield v1.1.3— MIT License")
+        footer_left = QLabel("Godot Shield v1.1.3 — MIT License")
         footer_left.setObjectName("FooterLabel")
         footer_right = QLabel(
             '<a href="https://github.com/June-Tree/Godot-Source-Code-Obfuscator" '
@@ -440,10 +486,12 @@ class MainWindow(QMainWindow):
             output = self._output_path if level == "standard" else None
             
             custom_password = self.password_edit.text().strip() or None
+            
             self._worker = ProtectionWorker(
                 project_path=self._project_path,
                 level=level,
                 output_path=output,
+                custom_password=custom_password, # <-- تم إصلاح هذا الخطأ هنا
             )
             self._worker.progress.connect(self._on_progress)
             self._worker.log.connect(self._on_log)
@@ -553,7 +601,6 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-
     def _check_tools(self) -> None:
         """Checks if Godot and Obfuscator are installed."""
         from core.utils import find_godot_executable, find_obfuscator_script
@@ -563,9 +610,9 @@ class MainWindow(QMainWindow):
         
         godot = find_godot_executable()
         if godot:
-            self.log_view.append_colored(f"Godot found: {godot}", "success")
+            self.log_view.append_colored(f"✅ Godot found: {godot}", "success")
         else:
-            self.log_view.append_colored("Godot not found in PATH!", "error")
+            self.log_view.append_colored("❌ Godot not found in PATH!", "error")
             
         obf = find_obfuscator_script()
         if obf:
