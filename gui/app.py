@@ -117,8 +117,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         """Initialize the main window and UI."""
         super().__init__()
-        self.setWindowTitle("Godot Shield — Game Protection Tool")
-        self.setMinimumSize(900, 680)
+        self.setWindowTitle("Godot Shield") 
+        self.setMinimumSize(950, 850)
 
         # State
         self._worker: Optional[ProtectionWorker] = None
@@ -237,6 +237,7 @@ class MainWindow(QMainWindow):
         log_label = QLabel("Logs:")
         main_layout.addWidget(log_label)
         self.log_view = ColoredLogView()
+        self.log_view.setMinimumHeight(250) 
         mono_font = QFont("Consolas", 10)
         mono_font.setStyleHint(QFont.StyleHint.Monospace)
         self.log_view.setFont(mono_font)
