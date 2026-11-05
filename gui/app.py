@@ -1,8 +1,5 @@
 """
-Main PySide6 window for Godot Shield v1.2.0.
-
-A human-crafted, developer-focused UI inspired by modern IDEs.
-Includes Dark/Light theme switching and settings persistence.
+Main PySide6 window for Godot Shield v1.2.0 
 """
 
 from __future__ import annotations
@@ -27,7 +24,15 @@ from gui.widgets import ColoredLogView
 from gui.workers import ProtectionWorker
 
 # --- Path Helper for Icons ---
-ICONS_DIR = Path(__file__).resolve().parent.parent / "assets" / "icons"
+import sys
+def resource_path(relative_path):
+    try:
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        base_path = Path(__file__).resolve().parent.parent
+    return base_path / relative_path
+
+ICONS_DIR = resource_path("assets/icons")
 
 def get_icon(name: str) -> QIcon:
     path = ICONS_DIR / f"{name}.svg"
