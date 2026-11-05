@@ -2,7 +2,7 @@
 Main PySide6 window for Godot Shield v1.2.0.
 
 A human-crafted, developer-focused UI inspired by modern IDEs.
-Features a flat design, a warm dark theme, and a clean sidebar layout.
+Includes Dark/Light theme switching and settings persistence.
 """
 
 from __future__ import annotations
@@ -13,12 +13,12 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Slot, QSize
+from PySide6.QtCore import Qt, Slot, QSize, QSettings
 from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMessageBox, QProgressBar, QPushButton,
-    QVBoxLayout, QWidget, QStackedWidget, QFrame
+    QVBoxLayout, QWidget, QStackedWidget, QFrame, QFormLayout
 )
 
 from core.protector import ProtectionResult
@@ -35,190 +35,84 @@ def get_icon(name: str) -> QIcon:
         return QIcon(str(path))
     return QIcon()
 
-# --- Human-Crafted Dark Theme (No AI Blue, IDE-inspired) ---
+# --- Human-Crafted Dark Theme (Ruby Red Accent) ---
 DARK_QSS = """
-/* Global */
-QMainWindow { 
-    background-color: #1e1e1e; 
-}
-QWidget {
-    color: #d4d4d4;
-    font-family: "Segoe UI", "Inter", sans-serif;
-    font-size: 13px;
-}
-QLabel { 
-    background: transparent; 
-}
+QMainWindow { background-color: #1e1e1e; }
+QWidget { color: #d4d4d4; font-family: "Segoe UI", "Inter", sans-serif; font-size: 13px; }
+QLabel { background: transparent; }
 
-/* Menu Bar - Flat and Native */
-QMenuBar {
-    background-color: #1e1e1e;
-    color: #d4d4d4;
-    padding: 2px;
-    border-bottom: 1px solid #333333;
-}
-QMenuBar::item {
-    background: transparent;
-    padding: 6px 10px;
-}
-QMenuBar::item:selected { 
-    background-color: #333333; 
-    color: #ffffff;
-}
-QMenu {
-    background-color: #252526;
-    border: 1px solid #3e3e42;
-    padding: 4px;
-}
-QMenu::item {
-    padding: 6px 24px 6px 12px;
-    color: #d4d4d4;
-}
-QMenu::item:selected { 
-    background-color: #333333; 
-    color: #ffffff;
-}
+QMenuBar { background-color: #1e1e1e; color: #d4d4d4; padding: 2px; border-bottom: 1px solid #333333; }
+QMenuBar::item { background: transparent; padding: 6px 10px; }
+QMenuBar::item:selected { background-color: #333333; color: #ffffff; }
+QMenu { background-color: #252526; border: 1px solid #3e3e42; padding: 4px; }
+QMenu::item { padding: 6px 24px 6px 12px; color: #d4d4d4; }
+QMenu::item:selected { background-color: #333333; color: #ffffff; }
 
-/* Sidebar */
-QWidget#Sidebar {
-    background-color: #181818;
-    border-right: 1px solid #2d2d30;
-}
-QLabel#LogoTitle {
-    font-size: 16px;
-    font-weight: 700;
-    color: #ffffff;
-    padding: 20px 10px;
-    letter-spacing: 1px;
-}
-QPushButton#SidebarBtn {
-    background-color: transparent;
-    border: none;
-    border-radius: 4px;
-    padding: 10px 12px;
-    text-align: left;
-    font-size: 13px;
-    color: #858585;
-    icon-size: 16px;
-}
-QPushButton#SidebarBtn:hover {
-    background-color: #252526;
-    color: #d4d4d4;
-}
-QPushButton#SidebarBtn:checked {
-    background-color: #2d2d30;
-    color: #ffffff;
-    border-left: 3px solid #e06c75; /* Warm Ruby Red Accent */
-}
+QWidget#Sidebar { background-color: #181818; border-right: 1px solid #2d2d30; }
+QLabel#LogoTitle { font-size: 16px; font-weight: 700; color: #ffffff; padding: 20px 10px; letter-spacing: 1px; }
+QPushButton#SidebarBtn { background-color: transparent; border: none; border-radius: 4px; padding: 10px 12px; text-align: left; font-size: 13px; color: #858585; icon-size: 16px; }
+QPushButton#SidebarBtn:hover { background-color: #252526; color: #d4d4d4; }
+QPushButton#SidebarBtn:checked { background-color: #2d2d30; color: #ffffff; border-left: 3px solid #e06c75; }
 
-/* Pages */
-QLabel#PageTitle { 
-    font-size: 22px; 
-    font-weight: 600; 
-    color: #ffffff; 
-    margin-bottom: 10px; 
-}
-QFrame#HLine {
-    background-color: #333333;
-    max-height: 1px;
-    margin: 10px 0;
-}
+QLabel#PageTitle { font-size: 22px; font-weight: 600; color: #ffffff; margin-bottom: 10px; }
+QFrame#HLine { background-color: #333333; max-height: 1px; margin: 10px 0; }
 
-/* Inputs */
-QLineEdit, QComboBox {
-    background-color: #2d2d30;
-    border: 1px solid #3e3e42;
-    border-radius: 4px;
-    padding: 6px 10px;
-    color: #d4d4d4;
-    selection-background-color: #e06c75;
-}
-QLineEdit:focus, QComboBox:focus { 
-    border: 1px solid #e06c75; 
-}
+QLineEdit, QComboBox { background-color: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; padding: 6px 10px; color: #d4d4d4; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid #e06c75; }
 QComboBox::drop-down { border: none; }
 
-/* Primary Button (Protect) */
-QPushButton#PrimaryButton {
-    background-color: #e06c75; /* Ruby Red */
-    color: #ffffff;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 12px;
-    icon-size: 18px;
-}
-QPushButton#PrimaryButton:hover { 
-    background-color: #c75b63; 
-}
-QPushButton#PrimaryButton:disabled { 
-    background-color: #4a2a2d; 
-    color: #8a5a5d; 
-}
+QPushButton#PrimaryButton { background-color: #e06c75; color: #ffffff; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; padding: 12px; icon-size: 18px; }
+QPushButton#PrimaryButton:hover { background-color: #c75b63; }
+QPushButton#PrimaryButton:disabled { background-color: #4a2a2d; color: #8a5a5d; }
 
-/* Secondary Buttons */
-QPushButton { 
-    background-color: #2d2d30;
-    border: 1px solid #3e3e42;
-    border-radius: 4px;
-    padding: 6px 12px;
-    color: #d4d4d4;
-    icon-size: 14px;
-}
-QPushButton:hover { 
-    background-color: #3e3e42; 
-}
-QPushButton:disabled { 
-    color: #555555; 
-    background-color: #1e1e1e; 
-    border: 1px solid #2d2d30;
-}
+QPushButton { background-color: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; padding: 6px 12px; color: #d4d4d4; icon-size: 14px; }
+QPushButton:hover { background-color: #3e3e42; }
+QPushButton:disabled { color: #555555; background-color: #1e1e1e; border: 1px solid #2d2d30; }
 
-/* Progress Bar */
-QProgressBar {
-    background-color: #2d2d30;
-    border: 1px solid #3e3e42;
-    border-radius: 4px;
-    text-align: center;
-    color: transparent;
-    height: 8px;
-}
-QProgressBar::chunk { 
-    background-color: #e06c75; 
-    border-radius: 3px;
-}
+QProgressBar { background-color: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; text-align: center; color: transparent; height: 8px; }
+QProgressBar::chunk { background-color: #e06c75; border-radius: 3px; }
 
-/* Log View */
-QPlainTextEdit {
-    background-color: #1e1e1e;
-    border: 1px solid #333333;
-    border-radius: 4px;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 12px;
-    color: #d4d4d4;
-    padding: 10px;
-    selection-background-color: #3e3e42;
-}
+QPlainTextEdit { background-color: #1e1e1e; border: 1px solid #333333; border-radius: 4px; font-family: "Consolas", monospace; color: #d4d4d4; padding: 10px; }
+"""
 
-/* Scrollbars */
-QScrollBar:vertical {
-    border: none;
-    background: #1e1e1e;
-    width: 12px;
-}
-QScrollBar::handle:vertical {
-    background: #3e3e42;
-    min-height: 20px;
-    border-radius: 6px;
-    margin: 2px;
-}
-QScrollBar::handle:vertical:hover { 
-    background: #4e4e52; 
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { 
-    height: 0px; 
-}
+# --- Human-Crafted Light Theme (Soft Grays, Dark Text) ---
+LIGHT_QSS = """
+QMainWindow { background-color: #ffffff; }
+QWidget { color: #333333; font-family: "Segoe UI", "Inter", sans-serif; font-size: 13px; }
+QLabel { background: transparent; }
+
+QMenuBar { background-color: #ffffff; color: #333333; padding: 2px; border-bottom: 1px solid #e5e5e5; }
+QMenuBar::item { background: transparent; padding: 6px 10px; }
+QMenuBar::item:selected { background-color: #f0f0f0; color: #000000; }
+QMenu { background-color: #ffffff; border: 1px solid #e5e5e5; padding: 4px; }
+QMenu::item { padding: 6px 24px 6px 12px; color: #333333; }
+QMenu::item:selected { background-color: #f0f0f0; color: #000000; }
+
+QWidget#Sidebar { background-color: #f8f8f8; border-right: 1px solid #e5e5e5; }
+QLabel#LogoTitle { font-size: 16px; font-weight: 700; color: #111111; padding: 20px 10px; letter-spacing: 1px; }
+QPushButton#SidebarBtn { background-color: transparent; border: none; border-radius: 4px; padding: 10px 12px; text-align: left; font-size: 13px; color: #666666; icon-size: 16px; }
+QPushButton#SidebarBtn:hover { background-color: #eaeaea; color: #111111; }
+QPushButton#SidebarBtn:checked { background-color: #e0e0e0; color: #111111; border-left: 3px solid #e06c75; }
+
+QLabel#PageTitle { font-size: 22px; font-weight: 600; color: #111111; margin-bottom: 10px; }
+QFrame#HLine { background-color: #e5e5e5; max-height: 1px; margin: 10px 0; }
+
+QLineEdit, QComboBox { background-color: #ffffff; border: 1px solid #cccccc; border-radius: 4px; padding: 6px 10px; color: #333333; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid #e06c75; }
+QComboBox::drop-down { border: none; }
+
+QPushButton#PrimaryButton { background-color: #e06c75; color: #ffffff; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; padding: 12px; icon-size: 18px; }
+QPushButton#PrimaryButton:hover { background-color: #c75b63; }
+QPushButton#PrimaryButton:disabled { background-color: #f0c8cc; color: #ffffff; }
+
+QPushButton { background-color: #f0f0f0; border: 1px solid #cccccc; border-radius: 4px; padding: 6px 12px; color: #333333; icon-size: 14px; }
+QPushButton:hover { background-color: #e0e0e0; }
+QPushButton:disabled { color: #999999; background-color: #f8f8f8; border: 1px solid #e5e5e5; }
+
+QProgressBar { background-color: #f0f0f0; border: 1px solid #cccccc; border-radius: 4px; text-align: center; color: transparent; height: 8px; }
+QProgressBar::chunk { background-color: #e06c75; border-radius: 3px; }
+
+QPlainTextEdit { background-color: #1e1e1e; border: 1px solid #333333; border-radius: 4px; font-family: "Consolas", monospace; color: #d4d4d4; padding: 10px; }
 """
 
 class MainWindow(QMainWindow):
@@ -233,11 +127,17 @@ class MainWindow(QMainWindow):
         self._worker: Optional[ProtectionWorker] = None
         self._project_path: Optional[Path] = None
         self._output_path: Optional[Path] = None
+        
+        # Settings Manager (Saves to registry/ini automatically)
+        self.settings = QSettings("Asmrog", "GodotShield")
 
         self._init_ui()
         self._init_menu()
         self._connect_signals()
         self._update_protection_level_ui()
+        
+        # Load saved theme
+        self._load_theme()
 
     def _init_ui(self) -> None:
         central = QWidget()
@@ -254,21 +154,16 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(10, 10, 10, 20)
         sidebar_layout.setSpacing(4)
 
-        # Logo
         logo = QLabel("GODOT SHIELD")
         logo.setObjectName("LogoTitle")
         sidebar_layout.addWidget(logo)
 
-        # Nav Buttons
         self.btn_protect_page = QPushButton(" Protect Game")
         self.btn_protect_page.setIcon(get_icon("shield"))
-        
         self.btn_logs_page = QPushButton(" Logs")
         self.btn_logs_page.setIcon(get_icon("terminal"))
-        
         self.btn_settings_page = QPushButton(" Settings")
         self.btn_settings_page.setIcon(get_icon("settings"))
-        
         self.btn_about_page = QPushButton(" About")
         self.btn_about_page.setIcon(get_icon("info"))
 
@@ -288,14 +183,13 @@ class MainWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         version = QLabel("v1.2.0")
-        version.setStyleSheet("color: #555; font-size: 11px; padding-left: 12px;")
+        version.setStyleSheet("color: #888; font-size: 11px; padding-left: 12px;")
         sidebar_layout.addWidget(version)
 
         main_layout.addWidget(self.sidebar)
 
         # --- 2. Stacked Pages ---
         self.stacked_widget = QStackedWidget()
-        
         self.page_protect = self._create_protect_page()
         self.page_logs = self._create_logs_page()
         self.page_settings = self._create_settings_page()
@@ -312,14 +206,13 @@ class MainWindow(QMainWindow):
     def _create_protect_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(40, 30, 40, 30) # More breathing room
+        layout.setContentsMargins(40, 30, 40, 30)
         layout.setSpacing(15)
 
         title = QLabel("Protect Your Game")
         title.setObjectName("PageTitle")
         layout.addWidget(title)
 
-        # Project Section
         layout.addWidget(QLabel("Godot Project Folder"))
         proj_row = QHBoxLayout()
         self.project_edit = QLineEdit()
@@ -338,10 +231,7 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self._h_line())
 
-        # Options Section (Side by side to save vertical space)
         opts_row = QHBoxLayout()
-        
-        # Level
         level_col = QVBoxLayout()
         level_col.addWidget(QLabel("Protection Level"))
         self.level_combo = QComboBox()
@@ -349,7 +239,6 @@ class MainWindow(QMainWindow):
         level_col.addWidget(self.level_combo)
         opts_row.addLayout(level_col, 1)
 
-        # Password
         pass_col = QVBoxLayout()
         pass_col.addWidget(QLabel("Custom Password (Optional)"))
         self.password_edit = QLineEdit()
@@ -367,7 +256,6 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self._h_line())
 
-        # Output Section
         self.output_label = QLabel("Output Executable (.exe)")
         layout.addWidget(self.output_label)
         out_row = QHBoxLayout()
@@ -382,7 +270,6 @@ class MainWindow(QMainWindow):
 
         layout.addSpacing(20)
 
-        # Actions & Progress
         self.protect_btn = QPushButton(" Protect Game")
         self.protect_btn.setIcon(get_icon("play"))
         self.protect_btn.setObjectName("PrimaryButton")
@@ -391,11 +278,9 @@ class MainWindow(QMainWindow):
         action_row = QHBoxLayout()
         self.check_btn = QPushButton(" Check Tools")
         self.check_btn.setIcon(get_icon("search"))
-        
         self.cancel_btn = QPushButton(" Cancel")
         self.cancel_btn.setIcon(get_icon("x"))
         self.cancel_btn.setEnabled(False)
-        
         self.open_folder_btn = QPushButton(" Open Output Folder")
         self.open_folder_btn.setIcon(get_icon("folder-open"))
         self.open_folder_btn.setEnabled(False)
@@ -432,7 +317,6 @@ class MainWindow(QMainWindow):
         self.save_logs_btn.setIcon(get_icon("save"))
         self.clear_logs_btn = QPushButton(" Clear")
         self.clear_logs_btn.setIcon(get_icon("trash"))
-        
         header.addWidget(self.save_logs_btn)
         header.addWidget(self.clear_logs_btn)
         layout.addLayout(header)
@@ -441,17 +325,33 @@ class MainWindow(QMainWindow):
         mono_font = QFont("Consolas", 10)
         self.log_view.setFont(mono_font)
         layout.addWidget(self.log_view)
-
         return page
 
     def _create_settings_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(40, 30, 40, 30)
+        layout.setSpacing(20)
+        
         title = QLabel("Settings")
         title.setObjectName("PageTitle")
         layout.addWidget(title)
-        layout.addWidget(QLabel("Settings coming in a future update."))
+        
+        # Theme Section
+        theme_group = QWidget()
+        theme_layout = QFormLayout(theme_group)
+        theme_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["Dark", "Light"])
+        self.theme_combo.currentTextChanged.connect(self._on_theme_changed)
+        
+        theme_layout.addRow("Application Theme:", self.theme_combo)
+        layout.addWidget(theme_group)
+        
+        layout.addWidget(self._h_line())
+        layout.addWidget(QLabel("More settings coming in a future update."))
+        
         layout.addStretch()
         return page
 
@@ -471,7 +371,7 @@ class MainWindow(QMainWindow):
             "Obfuscator: June-Tree\n"
             "Engine: Godot Engine"
         )
-        text.setStyleSheet("font-size: 13px; line-height: 1.6; color: #a0a0a0;")
+        text.setStyleSheet("font-size: 13px; line-height: 1.6; color: #888888;")
         layout.addWidget(text)
         layout.addStretch()
         return page
@@ -502,8 +402,6 @@ class MainWindow(QMainWindow):
     def _init_menu(self) -> None:
         try:
             menubar = self.menuBar()
-            
-            # File Menu
             file_menu = menubar.addMenu("File")
             clear_action = QAction("Clear Session", self)
             clear_action.triggered.connect(self._clear_session)
@@ -513,16 +411,32 @@ class MainWindow(QMainWindow):
             exit_action.triggered.connect(self.close)
             file_menu.addAction(exit_action)
             
-            # Help Menu
             help_menu = menubar.addMenu("Help")
             about_action = QAction("About", self)
             about_action.triggered.connect(lambda: self._switch_page(3))
             help_menu.addAction(about_action)
-            
         except Exception:
             pass
 
-    # --- Logic (Maintained exactly as previous version) ---
+    # --- Theme Logic ---
+    def _load_theme(self) -> None:
+        """Loads saved theme from QSettings."""
+        saved_theme = self.settings.value("theme", "Dark")
+        self.theme_combo.setCurrentText(saved_theme)
+        self._apply_theme(saved_theme)
+
+    def _on_theme_changed(self, theme_name: str) -> None:
+        """Triggered when user changes theme in settings."""
+        self._apply_theme(theme_name)
+        self.settings.setValue("theme", theme_name)
+
+    def _apply_theme(self, theme_name: str) -> None:
+        if theme_name == "Light":
+            self.setStyleSheet(LIGHT_QSS)
+        else:
+            self.setStyleSheet(DARK_QSS)
+
+    # --- Logic (Maintained) ---
     def _update_protection_level_ui(self) -> None:
         level = self.level_combo.currentText()
         if level == "Basic":
@@ -569,7 +483,6 @@ class MainWindow(QMainWindow):
         if not self._project_path or not is_valid_godot_project(self._project_path):
             QMessageBox.warning(self, "Invalid Project", "Select a valid Godot project folder.")
             return
-
         self._switch_page(1)
         self.protect_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
