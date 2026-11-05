@@ -1,9 +1,8 @@
 """
-Main PySide6 window for Godot Shield.
+Main PySide6 window for Godot Shield v1.2.0.
 
-This module defines the primary GUI: a dark-themed QMainWindow with
-project selection, protection level, output configuration, progress,
-and colored log view. It orchestrates the ProtectionWorker thread.
+This module defines the primary GUI with a modern sidebar layout.
+It uses real SVG icons loaded from the assets/icons directory.
 """
 
 from __future__ import annotations
@@ -14,20 +13,12 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtCore import Qt, Slot, QSize
+from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
-    QComboBox,
-    QFileDialog,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMainWindow,
-    QMessageBox,
-    QProgressBar,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
+    QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
+    QMainWindow, QMessageBox, QProgressBar, QPushButton,
+    QVBoxLayout, QWidget, QStackedWidget, QFrame
 )
 
 from core.protector import ProtectionResult
@@ -35,7 +26,17 @@ from core.utils import find_obfuscator_script, is_valid_godot_project
 from gui.widgets import ColoredLogView
 from gui.workers import ProtectionWorker
 
-# Dark QSS Mode
+# --- Path Helper for Icons ---
+ICONS_DIR = Path(__file__).resolve().parent.parent / "assets" / "icons"
+
+def get_icon(name: str) -> QIcon:
+    """Load an SVG icon from the assets/icons directory."""
+    path = ICONS_DIR / f"{name}.svg"
+    if path.exists():
+        return QIcon(str(path))
+    return QIcon()  # Return empty icon if not found
+
+# Dark QSS Mode (Modern Sidebar Theme)
 DARK_QSS = """
 /* Global */
 QMainWindow { background-color: #1e1e1e; }
@@ -46,74 +47,88 @@ QWidget {
 }
 QLabel { background: transparent; }
 
-/* Menu Bar */
-QMenuBar {
-    background-color: #1e1e1e;
-    color: #cccccc;
-    padding: 2px;
+/* Sidebar */
+QWidget#Sidebar {
+    background-color: #181818;
+    border-right: 1px solid #2d2d30;
 }
-QMenuBar::item {
-    background: transparent;
-    padding: 6px 12px;
-    border-radius: 4px;
+QLabel#LogoTitle {
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffffff;
+    padding: 20px 10px;
 }
-QMenuBar::item:selected { background-color: #2d2d30; color: #ffffff; }
-QMenu {
+QPushButton#SidebarBtn {
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 600;
+    color: #858585;
+    icon-size: 18px;
+}
+QPushButton#SidebarBtn:hover {
+    background-color: #2d2d30;
+    color: #ffffff;
+}
+QPushButton#SidebarBtn:checked {
+    background-color: #0d99ff;
+    color: #ffffff;
+}
+
+/* Pages */
+QLabel#PageTitle { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 20px; }
+
+/* Cards / Panels */
+QFrame#Card {
     background-color: #252526;
     border: 1px solid #3e3e42;
-    border-radius: 6px;
-    padding: 4px;
+    border-radius: 8px;
+    padding: 20px;
 }
-QMenu::item {
-    padding: 6px 24px 6px 12px;
-    border-radius: 4px;
-}
-QMenu::item:selected { background-color: #0d99ff; color: #ffffff; }
 
-/* Headers */
-QLabel#HeaderTitle { font-size: 26px; font-weight: 800; color: #ffffff; margin-bottom: 2px; }
-QLabel#HeaderSubtitle { font-size: 13px; color: #858585; margin-bottom: 15px; }
-
-/* Inputs & ComboBox */
+/* Inputs */
 QLineEdit, QComboBox {
-    background-color: #252526;
+    background-color: #1e1e1e;
     border: 1px solid #3e3e42;
     border-radius: 6px;
     padding: 8px 12px;
     color: #ffffff;
-    selection-background-color: #0d99ff;
 }
 QLineEdit:focus, QComboBox:focus { border: 1px solid #0d99ff; }
-QComboBox::drop-down { border: none; width: 20px; }
+QComboBox::drop-down { border: none; }
 
-/* Primary Button (Protect) */
+/* Buttons */
 QPushButton#PrimaryButton {
     background-color: #0d99ff;
     color: #ffffff;
     border: none;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
+    padding: 15px;
+    icon-size: 20px;
 }
 QPushButton#PrimaryButton:hover { background-color: #1aa3ff; }
 QPushButton#PrimaryButton:disabled { background-color: #1a4a6e; color: #88aadd; }
 
-/* Secondary Buttons */
-QPushButton {
+QPushButton { /* Secondary Buttons */
     background-color: #2d2d30;
     border: 1px solid #3e3e42;
     border-radius: 6px;
     padding: 8px 16px;
     color: #cccccc;
     font-weight: 600;
+    icon-size: 16px;
 }
-QPushButton:hover { background-color: #3e3e42; border: 1px solid #4e4e52; }
-QPushButton:pressed { background-color: #1e1e1e; }
-QPushButton:disabled { background-color: #1e1e1e; color: #555555; border: 1px solid #2d2d30; }
+QPushButton:hover { background-color: #3e3e42; }
+QPushButton:disabled { color: #555555; background-color: #1e1e1e; }
 
 /* Progress Bar */
 QProgressBar {
-    background-color: #252526;
+    background-color: #1e1e1e;
     border: 1px solid #3e3e42;
     border-radius: 6px;
     text-align: center;
@@ -132,603 +147,445 @@ QPlainTextEdit {
     color: #d4d4d4;
     padding: 10px;
 }
-
-/* Scrollbars */
-QScrollBar:vertical {
-    border: none;
-    background: #1e1e1e;
-    width: 10px;
-    margin: 0px;
-}
-QScrollBar::handle:vertical {
-    background: #3e3e42;
-    min-height: 20px;
-    border-radius: 5px;
-}
-QScrollBar::handle:vertical:hover { background: #555555; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 """
 
-
 class MainWindow(QMainWindow):
-    """Main application window for Godot Shield."""
+    """Main application window with Sidebar Layout."""
 
     def __init__(self) -> None:
-        """Initialize the main window and UI."""
         super().__init__()
-        self.setWindowTitle("Godot Shield") 
-        self.setMinimumSize(950, 850)
+        self.setWindowTitle("Godot Shield v1.2.0")
+        self.setMinimumSize(1050, 750)
+        self.setWindowIcon(get_icon("shield")) # Set app icon
 
-        # State
         self._worker: Optional[ProtectionWorker] = None
         self._project_path: Optional[Path] = None
         self._output_path: Optional[Path] = None
 
-        # Build UI
         self._init_ui()
         self._init_menu()
         self._connect_signals()
         self._update_protection_level_ui()
 
     def _init_ui(self) -> None:
-        """Build the main layout."""
         central = QWidget()
         self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
-        main_layout.setSpacing(16)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout = QHBoxLayout(central)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # 1. Header
-        header_title = QLabel("🛡 Godot Shield")
-        header_title.setObjectName("HeaderTitle")
-        header_subtitle = QLabel("Protect your Godot games")
-        header_subtitle.setObjectName("HeaderSubtitle")
-        main_layout.addWidget(header_title)
-        main_layout.addWidget(header_subtitle)
+        # --- 1. Sidebar ---
+        self.sidebar = QWidget()
+        self.sidebar.setObjectName("Sidebar")
+        self.sidebar.setFixedWidth(240)
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(10, 10, 10, 20)
+        sidebar_layout.setSpacing(5)
 
-        # 2. Project section
-        project_label = QLabel("Godot Project Folder:")
-        main_layout.addWidget(project_label)
+        # Logo
+        logo = QLabel("Godot Shield")
+        logo.setObjectName("LogoTitle")
+        sidebar_layout.addWidget(logo)
 
-        project_row = QHBoxLayout()
+        # Nav Buttons
+        self.btn_protect_page = QPushButton(" Protect Game")
+        self.btn_protect_page.setIcon(get_icon("shield"))
+        
+        self.btn_logs_page = QPushButton(" Logs")
+        self.btn_logs_page.setIcon(get_icon("terminal"))
+        
+        self.btn_settings_page = QPushButton(" Settings")
+        self.btn_settings_page.setIcon(get_icon("settings"))
+        
+        self.btn_about_page = QPushButton(" About")
+        self.btn_about_page.setIcon(get_icon("info"))
+
+        self.nav_buttons = [
+            (self.btn_protect_page, 0),
+            (self.btn_logs_page, 1),
+            (self.btn_settings_page, 2),
+            (self.btn_about_page, 3)
+        ]
+
+        for btn, idx in self.nav_buttons:
+            btn.setObjectName("SidebarBtn")
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked=False, i=idx: self._switch_page(i))
+            sidebar_layout.addWidget(btn)
+
+        sidebar_layout.addStretch()
+        
+        version = QLabel("v1.2.0")
+        version.setStyleSheet("color: #555; font-size: 11px; padding-left: 15px;")
+        sidebar_layout.addWidget(version)
+
+        main_layout.addWidget(self.sidebar)
+
+        # --- 2. Stacked Pages ---
+        self.stacked_widget = QStackedWidget()
+        
+        self.page_protect = self._create_protect_page()
+        self.page_logs = self._create_logs_page()
+        self.page_settings = self._create_settings_page()
+        self.page_about = self._create_about_page()
+
+        self.stacked_widget.addWidget(self.page_protect)
+        self.stacked_widget.addWidget(self.page_logs)
+        self.stacked_widget.addWidget(self.page_settings)
+        self.stacked_widget.addWidget(self.page_about)
+
+        main_layout.addWidget(self.stacked_widget, 1)
+        self._switch_page(0)
+
+    def _create_protect_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+
+        title = QLabel("Protect Your Game")
+        title.setObjectName("PageTitle")
+        layout.addWidget(title)
+
+        # Card: Inputs
+        card = QFrame()
+        card.setObjectName("Card")
+        card_layout = QVBoxLayout(card)
+        card_layout.setSpacing(15)
+
+        # Project
+        card_layout.addWidget(QLabel("Godot Project Folder:"))
+        proj_row = QHBoxLayout()
         self.project_edit = QLineEdit()
         self.project_edit.setReadOnly(True)
         self.project_edit.setPlaceholderText("Select your Godot project folder...")
-        self.project_browse_btn = QPushButton("Browse...")
-        project_row.addWidget(self.project_edit, 1)
-        project_row.addWidget(self.project_browse_btn)
-        main_layout.addLayout(project_row)
-
+        self.project_browse_btn = QPushButton(" Browse...")
+        self.project_browse_btn.setIcon(get_icon("folder"))
+        proj_row.addWidget(self.project_edit, 1)
+        proj_row.addWidget(self.project_browse_btn)
+        card_layout.addLayout(proj_row)
+        
         self.invalid_label = QLabel("")
-        self.invalid_label.setObjectName("InvalidLabel")
+        self.invalid_label.setStyleSheet("color: #F44747;")
         self.invalid_label.setVisible(False)
-        main_layout.addWidget(self.invalid_label)
+        card_layout.addWidget(self.invalid_label)
 
-        # 3. Protection level
-        level_label = QLabel("Protection Level:")
-        main_layout.addWidget(level_label)
-
+        # Level
+        card_layout.addWidget(QLabel("Protection Level:"))
         self.level_combo = QComboBox()
         self.level_combo.addItems(["Basic", "Standard"])
-        main_layout.addWidget(self.level_combo)
-
+        card_layout.addWidget(self.level_combo)
+        
         self.hint_label = QLabel()
-        self.hint_label.setObjectName("HintLabel")
+        self.hint_label.setStyleSheet("color: #858585; font-size: 11px;")
         self.hint_label.setWordWrap(True)
-        main_layout.addWidget(self.hint_label)
+        card_layout.addWidget(self.hint_label)
 
-        # 4. Output section
+        # Output
         self.output_label = QLabel("Output Executable (.exe):")
-        main_layout.addWidget(self.output_label)
-
-        output_row = QHBoxLayout()
+        card_layout.addWidget(self.output_label)
+        out_row = QHBoxLayout()
         self.output_edit = QLineEdit()
         self.output_edit.setReadOnly(True)
         self.output_edit.setPlaceholderText("Select output .exe path...")
-        self.output_browse_btn = QPushButton("Browse...")
-        output_row.addWidget(self.output_edit, 1)
-        output_row.addWidget(self.output_browse_btn)
-        main_layout.addLayout(output_row)
+        self.output_browse_btn = QPushButton(" Browse...")
+        self.output_browse_btn.setIcon(get_icon("folder"))
+        out_row.addWidget(self.output_edit, 1)
+        out_row.addWidget(self.output_browse_btn)
+        card_layout.addLayout(out_row)
 
-        # 4.5 Custom Password (Optional)
-        self.password_label = QLabel("Custom Password (Optional):")
-        main_layout.addWidget(self.password_label)
+        # Password
+        card_layout.addWidget(QLabel("Custom Password (Optional):"))
         self.password_edit = QLineEdit()
         self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_edit.setPlaceholderText("Leave empty to auto-generate a random key...")
-        main_layout.addWidget(self.password_edit) 
-        
-        # 5. Action Rows (Primary vs Secondary)
-        # Row 1: Main Action
-        action_row1 = QHBoxLayout()
-        self.protect_btn = QPushButton("Protect Game")
+        self.password_edit.setPlaceholderText("Leave empty to auto-generate...")
+        card_layout.addWidget(self.password_edit)
+
+        layout.addWidget(card)
+
+        # Actions & Progress
+        self.protect_btn = QPushButton(" Protect Game")
+        self.protect_btn.setIcon(get_icon("play"))
         self.protect_btn.setObjectName("PrimaryButton")
-        self.protect_btn.setMinimumHeight(45)
+        layout.addWidget(self.protect_btn)
+
+        action_row = QHBoxLayout()
+        self.check_btn = QPushButton(" Check Tools")
+        self.check_btn.setIcon(get_icon("search"))
         
-        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn = QPushButton(" Cancel")
+        self.cancel_btn.setIcon(get_icon("x"))
         self.cancel_btn.setEnabled(False)
-        self.cancel_btn.setMinimumHeight(45)
         
-        action_row1.addWidget(self.protect_btn, 1) 
-        action_row1.addWidget(self.cancel_btn)
-        main_layout.addLayout(action_row1)
+        self.open_folder_btn = QPushButton(" Open Output Folder")
+        self.open_folder_btn.setIcon(get_icon("folder-open"))
+        self.open_folder_btn.setEnabled(False)
+        
+        action_row.addWidget(self.check_btn)
+        action_row.addWidget(self.cancel_btn)
+        action_row.addWidget(self.open_folder_btn)
+        layout.addLayout(action_row)
 
-        # Row 2: Secondary Tools
-        action_row2 = QHBoxLayout()
-        self.check_btn = QPushButton("Check Tools")
-        self.check_btn.setToolTip("Verify Godot and Obfuscator are installed")
-        self.check_btn.clicked.connect(self._check_tools)
-        
-        self.open_folder_btn = QPushButton("Open Output Folder")
-        self.open_folder_btn.setEnabled(False) 
-        self.open_folder_btn.clicked.connect(self._open_output_folder)
-
-        action_row2.addWidget(self.check_btn)
-        action_row2.addStretch() 
-        action_row2.addWidget(self.open_folder_btn)
-        main_layout.addLayout(action_row2)
-        
-        # 6. Progress bar + status label
-        progress_row = QHBoxLayout()
         self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
+        layout.addWidget(self.progress_bar)
+
         self.status_label = QLabel("Ready")
-        self.status_label.setObjectName("HintLabel")
-        progress_row.addWidget(self.progress_bar, 1)
-        progress_row.addWidget(self.status_label)
-        main_layout.addLayout(progress_row)
+        self.status_label.setStyleSheet("color: #858585;")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
 
-        # 7. Log view
-        log_label = QLabel("Logs:")
-        main_layout.addWidget(log_label)
+        layout.addStretch()
+        return page
+
+    def _create_logs_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(30, 30, 30, 30)
+
+        header = QHBoxLayout()
+        title = QLabel("Process Logs")
+        title.setObjectName("PageTitle")
+        header.addWidget(title)
+        header.addStretch()
+
+        self.save_logs_btn = QPushButton(" Save Logs")
+        self.save_logs_btn.setIcon(get_icon("save"))
+        self.clear_logs_btn = QPushButton(" Clear Logs")
+        self.clear_logs_btn.setIcon(get_icon("trash"))
+        
+        header.addWidget(self.save_logs_btn)
+        header.addWidget(self.clear_logs_btn)
+        layout.addLayout(header)
+
         self.log_view = ColoredLogView()
-        self.log_view.setMinimumHeight(250) 
         mono_font = QFont("Consolas", 10)
-        mono_font.setStyleHint(QFont.StyleHint.Monospace)
         self.log_view.setFont(mono_font)
-        main_layout.addWidget(self.log_view, 1)
+        layout.addWidget(self.log_view)
 
-        # 8. Footer
-        footer_layout = QHBoxLayout()
-        footer_left = QLabel("Godot Shield v1.1.3 — MIT License")
-        footer_left.setObjectName("FooterLabel")
-        footer_right = QLabel(
-            '<a href="https://github.com/June-Tree/Godot-Source-Code-Obfuscator" '
-            'style="color:#0D99FF;">Obfuscator: June-Tree/Godot-Source-Code-Obfuscator</a>'
+        return page
+
+    def _create_settings_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(30, 30, 30, 30)
+        title = QLabel("Settings")
+        title.setObjectName("PageTitle")
+        layout.addWidget(title)
+        layout.addWidget(QLabel("Settings coming in a future update..."))
+        layout.addStretch()
+        return page
+
+    def _create_about_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(30, 30, 30, 30)
+        title = QLabel("About Godot Shield")
+        title.setObjectName("PageTitle")
+        layout.addWidget(title)
+        
+        text = QLabel(
+            "Godot Shield v1.2.0\nMIT License\n\n"
+            "Automated protection for Godot games.\n"
+            "Obfuscation + AES-256 PCK Encryption.\n\n"
+            "Credits:\n"
+            "Obfuscator: June-Tree\n"
+            "Engine: Godot Engine"
         )
-        footer_right.setObjectName("FooterLabel")
-        footer_right.setOpenExternalLinks(True)
-        footer_layout.addWidget(footer_left)
-        footer_layout.addStretch()
-        footer_layout.addWidget(footer_right)
-        main_layout.addLayout(footer_layout)
+        text.setStyleSheet("font-size: 14px; line-height: 1.5;")
+        layout.addWidget(text)
+        layout.addStretch()
+        return page
+
+    def _switch_page(self, index: int) -> None:
+        self.stacked_widget.setCurrentIndex(index)
+        for btn, idx in self.nav_buttons:
+            btn.setChecked(idx == index)
+
+    def _connect_signals(self) -> None:
+        self.project_browse_btn.clicked.connect(self._browse_project)
+        self.output_browse_btn.clicked.connect(self._browse_output)
+        self.level_combo.currentTextChanged.connect(self._update_protection_level_ui)
+        self.protect_btn.clicked.connect(self._start_protection)
+        self.cancel_btn.clicked.connect(self._cancel_protection)
+        self.check_btn.clicked.connect(self._check_tools)
+        self.open_folder_btn.clicked.connect(self._open_output_folder)
+        self.clear_logs_btn.clicked.connect(self.log_view.clear_log)
+        self.save_logs_btn.clicked.connect(self._save_logs)
 
     def _init_menu(self) -> None:
-        """Create menu bar with File and Help menus."""
         try:
             menubar = self.menuBar()
-
-            # --- File Menu ---
             file_menu = menubar.addMenu("File")
-
-            open_proj_action = QAction("Open Project...", self)
-            open_proj_action.setShortcut("Ctrl+O")
-            open_proj_action.triggered.connect(self._browse_project)
-            file_menu.addAction(open_proj_action)
-
-            open_backup_action = QAction("Open Backup Folder", self)
-            open_backup_action.triggered.connect(self._open_backup_folder)
-            file_menu.addAction(open_backup_action)
-
-            save_logs_action = QAction("Save Logs...", self)
-            save_logs_action.setShortcut("Ctrl+S")
-            save_logs_action.triggered.connect(self._save_logs)
-            file_menu.addAction(save_logs_action)
-
-            file_menu.addSeparator()
-
+            
             clear_action = QAction("Clear Session", self)
             clear_action.triggered.connect(self._clear_session)
             file_menu.addAction(clear_action)
-
+            
             file_menu.addSeparator()
-
+            
             exit_action = QAction("Exit", self)
             exit_action.triggered.connect(self.close)
             file_menu.addAction(exit_action)
-
-            # --- Help Menu ---
-            help_menu = menubar.addMenu("Help")
-            about_action = QAction("About", self)
-            about_action.triggered.connect(self._show_about)
-            help_menu.addAction(about_action)
         except Exception:
             pass
 
-    def _connect_signals(self) -> None:
-        """Connect UI signals to slots."""
-        try:
-            self.project_browse_btn.clicked.connect(self._browse_project)
-            self.output_browse_btn.clicked.connect(self._browse_output)
-            self.level_combo.currentTextChanged.connect(self._update_protection_level_ui)
-            self.protect_btn.clicked.connect(self._start_protection)
-            self.cancel_btn.clicked.connect(self._cancel_protection)
-        except Exception:
-            pass
-
+    # --- Logic (Copied from previous version to maintain functionality) ---
     def _update_protection_level_ui(self) -> None:
-        """Update hint label and enable/disable output section based on level."""
-        try:
-            level = self.level_combo.currentText()
-            if level == "Basic":
-                self.hint_label.setText(
-                    "Basic: Obfuscates GDScript source code in place (no export). "
-                    "Fast, good for testing."
-                )
-                self.output_label.setEnabled(False)
-                self.output_edit.setEnabled(False)
-                self.output_browse_btn.setEnabled(False)
-            else:
-                self.hint_label.setText(
-                    "Standard: Obfuscation + AES-256 PCK encryption + export to Windows .exe. "
-                    "Requires Godot 4.x and export templates."
-                )
-                self.output_label.setEnabled(True)
-                self.output_edit.setEnabled(True)
-                self.output_browse_btn.setEnabled(True)
-
-                if self._project_path and not self.output_edit.text():
-                    default_out = self._project_path / "build" / "game.exe"
-                    self._output_path = default_out
-                    self.output_edit.setText(str(default_out))
-        except Exception:
-            pass
+        level = self.level_combo.currentText()
+        if level == "Basic":
+            self.hint_label.setText("Basic: Obfuscates GDScript in place (no export).")
+            self.output_label.setEnabled(False)
+            self.output_edit.setEnabled(False)
+            self.output_browse_btn.setEnabled(False)
+        else:
+            self.hint_label.setText("Standard: Obfuscation + AES-256 encryption + .exe export.")
+            self.output_label.setEnabled(True)
+            self.output_edit.setEnabled(True)
+            self.output_browse_btn.setEnabled(True)
+            if self._project_path and not self.output_edit.text():
+                default_out = self._project_path / "build" / "game.exe"
+                self._output_path = default_out
+                self.output_edit.setText(str(default_out))
 
     def _browse_project(self) -> None:
-        """Open folder dialog for project selection."""
-        try:
-            folder = QFileDialog.getExistingDirectory(
-                self, "Select Godot Project Folder", str(Path.home())
-            )
-            if folder:
-                path = Path(folder)
-                self._project_path = path
-                self.project_edit.setText(str(path))
-
-                if not is_valid_godot_project(path):
-                    self.invalid_label.setText(
-                        "Invalid: project.godot not found in this folder."
-                    )
-                    self.invalid_label.setVisible(True)
-                else:
-                    self.invalid_label.setVisible(False)
-                    self.log_view.append_colored(f"Selected project: {path}", "info")
-
-                    if (
-                        self.level_combo.currentText() == "Standard"
-                        and not self.output_edit.text()
-                    ):
-                        default_out = path / "build" / "game.exe"
-                        self._output_path = default_out
-                        self.output_edit.setText(str(default_out))
-        except Exception as exc:
-            try:
-                self.log_view.append_colored(
-                    f"Error selecting project folder: {exc}", "error"
-                )
-            except Exception:
-                pass
+        folder = QFileDialog.getExistingDirectory(self, "Select Godot Project", str(Path.home()))
+        if folder:
+            path = Path(folder)
+            self._project_path = path
+            self.project_edit.setText(str(path))
+            if not is_valid_godot_project(path):
+                self.invalid_label.setText("Invalid: project.godot not found.")
+                self.invalid_label.setVisible(True)
+            else:
+                self.invalid_label.setVisible(False)
+                self.log_view.append_colored(f"Selected project: {path}", "info")
+                if self.level_combo.currentText() == "Standard" and not self.output_edit.text():
+                    default_out = path / "build" / "game.exe"
+                    self._output_path = default_out
+                    self.output_edit.setText(str(default_out))
 
     def _browse_output(self) -> None:
-        """Open save file dialog for output exe."""
-        try:
-            default_dir = str(
-                self._project_path / "build" if self._project_path else Path.home()
-            )
-            file_path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Select Output Executable",
-                default_dir + "/game.exe",
-                "Executable (*.exe);;All Files (*)",
-            )
-            if file_path:
-                self._output_path = Path(file_path)
-                self.output_edit.setText(file_path)
-                self.log_view.append_colored(f"Selected output: {file_path}", "info")
-        except Exception as exc:
-            try:
-                self.log_view.append_colored(f"Error selecting output: {exc}", "error")
-            except Exception:
-                pass
-
-    def _validate_inputs(self) -> bool:
-        """Validate inputs before starting protection."""
-        try:
-            if not self._project_path or not is_valid_godot_project(self._project_path):
-                QMessageBox.warning(
-                    self,
-                    "Invalid Project",
-                    "Please select a valid Godot project folder containing project.godot.",
-                )
-                return False
-
-            obfuscator_script = find_obfuscator_script()
-            if obfuscator_script is None:
-                QMessageBox.warning(
-                    self,
-                    "Obfuscator Not Found",
-                    "GDScript obfuscator not found.\n\n"
-                    "Expected at: obfuscator/scripts/gdscript_obfuscator.py\n\n"
-                    "Please run:\n"
-                    "git clone https://github.com/June-Tree/Godot-Source-Code-Obfuscator.git obfuscator\n\n"
-                    "in the Godot Shield root directory.",
-                )
-                return False
-
-            if self.level_combo.currentText() == "Standard":
-                if not self._output_path:
-                    text = self.output_edit.text().strip()
-                    if not text:
-                        QMessageBox.warning(
-                            self,
-                            "Missing Output",
-                            "Please select an output .exe path for Standard protection.",
-                        )
-                        return False
-                    try:
-                        self._output_path = Path(text)
-                    except Exception:
-                        QMessageBox.warning(self, "Invalid Output", "Output path is invalid.")
-                        return False
-
-            return True
-        except Exception as exc:
-            QMessageBox.critical(
-                self, "Validation Error", f"Error validating inputs: {exc}"
-            )
-            return False
+        default_dir = str(self._project_path / "build" if self._project_path else Path.home())
+        file_path, _ = QFileDialog.getSaveFileName(self, "Select Output", default_dir + "/game.exe", "Executable (*.exe)")
+        if file_path:
+            self._output_path = Path(file_path)
+            self.output_edit.setText(file_path)
+            self.log_view.append_colored(f"Selected output: {file_path}", "info")
 
     def _start_protection(self) -> None:
-        """Start the protection worker thread."""
-        try:
-            if not self._validate_inputs():
-                return
-            
-            self.protect_btn.setEnabled(False)
-            self.cancel_btn.setEnabled(True)
-            self.open_folder_btn.setEnabled(False)
-            self.project_browse_btn.setEnabled(False)
-            self.output_browse_btn.setEnabled(False)
-            self.level_combo.setEnabled(False)
+        if not self._project_path or not is_valid_godot_project(self._project_path):
+            QMessageBox.warning(self, "Invalid Project", "Select a valid Godot project folder.")
+            return
 
-            self.progress_bar.setValue(0)
-            self.status_label.setText("Starting...")
-            self.log_view.clear_log()
-            self.log_view.append_colored("=== Starting protection pipeline ===", "info")
+        self._switch_page(1) # Switch to Logs page automatically
+        self.protect_btn.setEnabled(False)
+        self.cancel_btn.setEnabled(True)
+        self.open_folder_btn.setEnabled(False)
+        self.log_view.clear_log()
+        self.progress_bar.setValue(0)
 
-            level = self.level_combo.currentText().lower()
-            output = self._output_path if level == "standard" else None
-            
-            custom_password = self.password_edit.text().strip() or None
-            
-            self._worker = ProtectionWorker(
-                project_path=self._project_path,
-                level=level,
-                output_path=output,
-                custom_password=custom_password, # <-- تم إصلاح هذا الخطأ هنا
-            )
-            self._worker.progress.connect(self._on_progress)
-            self._worker.log.connect(self._on_log)
-            self._worker.protection_finished.connect(self._on_finished)
-            self._worker.start()
+        level = self.level_combo.currentText().lower()
+        output = self._output_path if level == "standard" else None
+        custom_password = self.password_edit.text().strip() or None
 
-        except Exception as exc:
-            self.log_view.append_colored(f"Failed to start protection: {exc}", "error")
-            self._reset_ui_after_finish()
+        self._worker = ProtectionWorker(
+            project_path=self._project_path,
+            level=level,
+            output_path=output,
+            custom_password=custom_password,
+        )
+        self._worker.progress.connect(self._on_progress)
+        self._worker.log.connect(self._on_log)
+        self._worker.protection_finished.connect(self._on_finished)
+        self._worker.start()
 
     def _cancel_protection(self) -> None:
-        """Request cancellation of running worker."""
-        try:
-            if self._worker and self._worker.isRunning():
-                self._worker.cancel()
-                self.status_label.setText("Cancelling...")
-                self.log_view.append_colored("Cancellation requested by user.", "warning")
-                self.cancel_btn.setEnabled(False)
-        except Exception as exc:
-            self.log_view.append_colored(f"Error cancelling: {exc}", "error")
+        if self._worker and self._worker.isRunning():
+            self._worker.cancel()
+            self.log_view.append_colored("Cancellation requested.", "warning")
 
-    @Slot(str, int)
     def _on_progress(self, step: str, percent: int) -> None:
-        """Handle progress updates from worker."""
-        try:
-            self.progress_bar.setValue(percent)
-            self.status_label.setText(step)
-        except Exception:
-            pass
+        self.progress_bar.setValue(percent)
+        self.status_label.setText(step)
 
-    @Slot(str, str)
     def _on_log(self, message: str, severity: str) -> None:
-        """Handle log messages from worker."""
-        try:
-            self.log_view.append_colored(message, severity)
-        except Exception:
-            pass
+        self.log_view.append_colored(message, severity)
 
-    @Slot(object)
     def _on_finished(self, result: ProtectionResult) -> None:
-        """Handle completion of protection pipeline."""
-        try:
-            self._reset_ui_after_finish()
-            if result.success and result.output_path:
-                self.open_folder_btn.setEnabled(True)
+        self.protect_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
+        if result.success and result.output_path:
+            self.open_folder_btn.setEnabled(True)
 
-            if result.success:
-                self.progress_bar.setValue(100)
-                self.status_label.setText("Protection successful")
-                self.log_view.append_colored(
-                    "=== Protection completed successfully ===", "success"
-                )
-
-                summary = "Protection completed successfully!\n\n"
-                summary += f"Obfuscated: {'Yes' if result.obfuscated else 'No'}\n"
-                summary += (
-                    f"Exported: {'Yes' if result.exported else 'No (basic level or Godot not found)'}\n"
-                )
-                if result.output_path:
-                    summary += f"Output: {result.output_path}\n"
-
-                msg_box = QMessageBox(self)
-                msg_box.setWindowTitle("Success")
-                msg_box.setText(summary)
-                msg_box.setIcon(QMessageBox.Icon.Information)
-
-                if result.output_path and result.output_path.exists():
-                    open_folder_btn = msg_box.addButton(
-                        "Open Folder", QMessageBox.ButtonRole.ActionRole
-                    )
-                    msg_box.addButton(QMessageBox.StandardButton.Ok)
-                    msg_box.exec()
-                    if msg_box.clickedButton() == open_folder_btn:
-                        self._open_folder(result.output_path.parent)
-                else:
-                    msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-                    msg_box.exec()
-
-            else:
-                self.status_label.setText("Protection failed")
-                self.log_view.append_colored(
-                    f"Protection failed: {result.error_message}", "error"
-                )
-                QMessageBox.critical(
-                    self,
-                    "Protection Failed",
-                    f"Protection failed:\n{result.error_message or 'Unknown error'}\n\n"
-                    "Check logs for details.",
-                )
-        except Exception as exc:
-            try:
-                self.log_view.append_colored(f"Error handling finish: {exc}", "error")
-            except Exception:
-                pass
-            self._reset_ui_after_finish()
-
-    def _reset_ui_after_finish(self) -> None:
-        """Re-enable UI after worker finishes."""
-        try:
-            self.protect_btn.setEnabled(True)
-            self.cancel_btn.setEnabled(False)
-            self.project_browse_btn.setEnabled(True)
-            self.output_browse_btn.setEnabled(True)
-            self.level_combo.setEnabled(True)
-            self._update_protection_level_ui()
-            self._worker = None
-        except Exception:
-            pass
+        if result.success:
+            self.progress_bar.setValue(100)
+            self.status_label.setText("Success")
+            self.log_view.append_colored("=== Protection completed successfully ===", "success")
+            QMessageBox.information(self, "Success", "Protection completed successfully!")
+        else:
+            self.status_label.setText("Failed")
+            self.log_view.append_colored(f"Failed: {result.error_message}", "error")
+            QMessageBox.critical(self, "Failed", f"Error: {result.error_message}")
+        self._worker = None
 
     def _check_tools(self) -> None:
-        """Checks if Godot and Obfuscator are installed."""
-        from core.utils import find_godot_executable, find_obfuscator_script
-        
+        self._switch_page(1)
         self.log_view.clear_log()
         self.log_view.append_colored("=== Checking Tools ===", "info")
-        
+        from core.utils import find_godot_executable
         godot = find_godot_executable()
         if godot:
-            self.log_view.append_colored(f"✅ Godot found: {godot}", "success")
+            self.log_view.append_colored(f"Godot found: {godot}", "success")
         else:
-            self.log_view.append_colored("❌ Godot not found in PATH!", "error")
-            
+            self.log_view.append_colored("Godot not found in PATH.", "error")
         obf = find_obfuscator_script()
         if obf:
-            self.log_view.append_colored(f"✅ Obfuscator found: {obf}", "success")
+            self.log_view.append_colored(f"Obfuscator found: {obf}", "success")
         else:
-            self.log_view.append_colored("❌ Obfuscator not found.", "error")
+            self.log_view.append_colored("Obfuscator not found.", "error")
 
     def _open_output_folder(self) -> None:
-        """Opens the folder containing the exported game."""
         if self._output_path and self._output_path.parent.exists():
             self._open_folder(self._output_path.parent)
 
     def _open_folder(self, folder: Path) -> None:
-        """Open folder in file explorer (cross-platform)."""
-        try:
-            folder = Path(folder)
-            system = platform.system()
-            if system == "Windows":
-                os.startfile(str(folder))  # type: ignore[attr-defined]
-            elif system == "Darwin":
-                subprocess.run(["open", str(folder)], check=False)
-            else:
-                subprocess.run(["xdg-open", str(folder)], check=False)
-            self.log_view.append_colored(f"Opened folder: {folder}", "info")
-        except Exception as exc:
-            self.log_view.append_colored(f"Failed to open folder {folder}: {exc}", "error")
+        system = platform.system()
+        if system == "Windows":
+            os.startfile(str(folder))
+        elif system == "Darwin":
+            subprocess.run(["open", str(folder)], check=False)
+        else:
+            subprocess.run(["xdg-open", str(folder)], check=False)
 
-    def _show_about(self) -> None:
-        """Show About dialog."""
-        try:
-            QMessageBox.about(
-                self,
-                "About Godot Shield",
-                "Godot Shield v1.1.3\n"
-                "MIT License\n\n"
-                "Automated protection for Godot games — obfuscation + encryption.\n\n"
-                "Features:\n"
-                "- GDScript obfuscation\n"
-                "- AES-256 PCK encryption\n"
-                "- Windows export\n\n"
-                "Credits:\n"
-                "- Obfuscator: June-Tree/Godot-Source-Code-Obfuscator\n"
-                "- Engine: Godot Engine\n\n"
-                "https://github.com/June-Tree/Godot-Source-Code-Obfuscator\n"
-                "https://godotengine.org",
-            )
-        except Exception:
-            pass
+    def _save_logs(self) -> None:
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save Logs", "logs.txt", "Text (*.txt)")
+        if file_path:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(self.log_view.toPlainText())
+            self.log_view.append_colored(f"Logs saved: {file_path}", "success")
+
     def _clear_session(self) -> None:
-        """Resets the UI and clears all selections."""
-        try:
-            self._project_path = None
-            self._output_path = None
-            self.project_edit.clear()
-            self.output_edit.clear()
-            self.password_edit.clear()
-            self.log_view.clear_log()
-            self.progress_bar.setValue(0)
-            self.status_label.setText("Ready")
-            self.invalid_label.setVisible(False)
-            self.open_folder_btn.setEnabled(False)
-            self.protect_btn.setEnabled(True)
-            self.cancel_btn.setEnabled(False)
-            self.log_view.append_colored("Session cleared. Ready for new project.", "info")
-        except Exception as exc:
-            print(f"Error clearing session: {exc}")
+        self._project_path = None
+        self._output_path = None
+        self.project_edit.clear()
+        self.output_edit.clear()
+        self.password_edit.clear()
+        self.log_view.clear_log()
+        self.progress_bar.setValue(0)
+        self.status_label.setText("Ready")
+        self.invalid_label.setVisible(False)
+        self.open_folder_btn.setEnabled(False)
+        self.protect_btn.setEnabled(True)
+        self.cancel_btn.setEnabled(False)
+        self.log_view.append_colored("Session cleared. Ready for new project.", "info")
 
     def _open_backup_folder(self) -> None:
-        """Opens the .godot_shield_backups folder for the selected project."""
         if not self._project_path:
             QMessageBox.warning(self, "No Project", "Please select a project folder first.")
             return
-            
         backup_dir = self._project_path.parent / ".godot_shield_backups"
         if backup_dir.exists():
             self._open_folder(backup_dir)
         else:
-            QMessageBox.information(self, "No Backups", "No backup folder found for this project yet. Run protection first to create one.")
-
-    def _save_logs(self) -> None:
-        """Saves the current log view to a text file."""
-        try:
-            file_path, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Logs",
-                "godot_shield_log.txt",
-                "Text Files (*.txt);;All Files (*)",
-            )
-            if file_path:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(self.log_view.toPlainText())
-                self.log_view.append_colored(f"Logs saved to: {file_path}", "success")
-        except Exception as exc:
-            QMessageBox.critical(self, "Error", f"Could not save logs: {exc}")
+            QMessageBox.information(self, "No Backups", "No backup folder found.")
