@@ -26,16 +26,17 @@ class ColoredLogView(QPlainTextEdit):
     """
     Read-only log view with colored lines based on severity.
 
-    Supports severities: info (white), success (green), warning (yellow),
-    error (red). Uses monospace font for readability.
+    Supports severities: info (light gray), success (soft green), 
+    warning (soft yellow), error (ruby red). 
+    Designed to look good on a dark terminal-like background.
     """
 
-    # Mapping severity to color
+    # Mapping severity to color (Human-crafted palette)
     COLORS = {
-        "info": "#D4D4D4",
-        "success": "#4EC9B0",
-        "warning": "#DCDCAA",
-        "error": "#F44747",
+        "info": "#d4d4d4",      # Light Gray
+        "success": "#98c379",   # Soft Green
+        "warning": "#e5c07b",   # Soft Yellow
+        "error": "#e06c75",     # Ruby Red (Matches the new primary accent)
     }
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
