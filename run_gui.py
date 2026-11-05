@@ -1,8 +1,5 @@
 """
-GUI entry point for Godot Shield v1.2.0.
-
-Creates QApplication, applies Fusion style, shows an Animated Splash Screen
-(Fade-in + Loading Bar), and launches the MainWindow.
+GUI entry point for Godot Shield v1.2.0
 """
 
 from __future__ import annotations
@@ -16,7 +13,15 @@ from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF
 from gui.app import DARK_QSS, MainWindow
 
 # --- Path Helpers ---
-BASE_DIR = Path(__file__).resolve().parent
+import sys
+def resource_path_root(relative_path):
+    try:
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        base_path = Path(__file__).resolve().parent
+    return base_path / relative_path
+
+BASE_DIR = resource_path_root(".")
 ICON_PNG = BASE_DIR / "icon.png"
 ICON_ICO = BASE_DIR / "icon.ico"
 ASSET_SVG = BASE_DIR / "assets" / "icons" / "shield.svg"
