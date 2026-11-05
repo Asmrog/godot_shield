@@ -1,8 +1,8 @@
 """
 Main PySide6 window for Godot Shield v1.2.0.
 
-This module defines the primary GUI with a modern sidebar layout.
-It uses real SVG icons loaded from the assets/icons directory.
+A human-crafted, developer-focused UI inspired by modern IDEs.
+Features a flat design, a warm dark theme, and a clean sidebar layout.
 """
 
 from __future__ import annotations
@@ -30,22 +30,54 @@ from gui.workers import ProtectionWorker
 ICONS_DIR = Path(__file__).resolve().parent.parent / "assets" / "icons"
 
 def get_icon(name: str) -> QIcon:
-    """Load an SVG icon from the assets/icons directory."""
     path = ICONS_DIR / f"{name}.svg"
     if path.exists():
         return QIcon(str(path))
-    return QIcon()  # Return empty icon if not found
+    return QIcon()
 
-# Dark QSS Mode (Modern Sidebar Theme)
+# --- Human-Crafted Dark Theme (No AI Blue, IDE-inspired) ---
 DARK_QSS = """
 /* Global */
-QMainWindow { background-color: #1e1e1e; }
+QMainWindow { 
+    background-color: #1e1e1e; 
+}
 QWidget {
-    color: #cccccc;
+    color: #d4d4d4;
     font-family: "Segoe UI", "Inter", sans-serif;
     font-size: 13px;
 }
-QLabel { background: transparent; }
+QLabel { 
+    background: transparent; 
+}
+
+/* Menu Bar - Flat and Native */
+QMenuBar {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 2px;
+    border-bottom: 1px solid #333333;
+}
+QMenuBar::item {
+    background: transparent;
+    padding: 6px 10px;
+}
+QMenuBar::item:selected { 
+    background-color: #333333; 
+    color: #ffffff;
+}
+QMenu {
+    background-color: #252526;
+    border: 1px solid #3e3e42;
+    padding: 4px;
+}
+QMenu::item {
+    padding: 6px 24px 6px 12px;
+    color: #d4d4d4;
+}
+QMenu::item:selected { 
+    background-color: #333333; 
+    color: #ffffff;
+}
 
 /* Sidebar */
 QWidget#Sidebar {
@@ -53,99 +85,139 @@ QWidget#Sidebar {
     border-right: 1px solid #2d2d30;
 }
 QLabel#LogoTitle {
-    font-size: 18px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 700;
     color: #ffffff;
     padding: 20px 10px;
+    letter-spacing: 1px;
 }
 QPushButton#SidebarBtn {
     background-color: transparent;
     border: none;
-    border-radius: 6px;
-    padding: 12px 15px;
+    border-radius: 4px;
+    padding: 10px 12px;
     text-align: left;
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
     color: #858585;
-    icon-size: 18px;
+    icon-size: 16px;
 }
 QPushButton#SidebarBtn:hover {
-    background-color: #2d2d30;
-    color: #ffffff;
+    background-color: #252526;
+    color: #d4d4d4;
 }
 QPushButton#SidebarBtn:checked {
-    background-color: #0d99ff;
+    background-color: #2d2d30;
     color: #ffffff;
+    border-left: 3px solid #e06c75; /* Warm Ruby Red Accent */
 }
 
 /* Pages */
-QLabel#PageTitle { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 20px; }
-
-/* Cards / Panels */
-QFrame#Card {
-    background-color: #252526;
-    border: 1px solid #3e3e42;
-    border-radius: 8px;
-    padding: 20px;
+QLabel#PageTitle { 
+    font-size: 22px; 
+    font-weight: 600; 
+    color: #ffffff; 
+    margin-bottom: 10px; 
+}
+QFrame#HLine {
+    background-color: #333333;
+    max-height: 1px;
+    margin: 10px 0;
 }
 
 /* Inputs */
 QLineEdit, QComboBox {
-    background-color: #1e1e1e;
-    border: 1px solid #3e3e42;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #ffffff;
-}
-QLineEdit:focus, QComboBox:focus { border: 1px solid #0d99ff; }
-QComboBox::drop-down { border: none; }
-
-/* Buttons */
-QPushButton#PrimaryButton {
-    background-color: #0d99ff;
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: 700;
-    padding: 15px;
-    icon-size: 20px;
-}
-QPushButton#PrimaryButton:hover { background-color: #1aa3ff; }
-QPushButton#PrimaryButton:disabled { background-color: #1a4a6e; color: #88aadd; }
-
-QPushButton { /* Secondary Buttons */
     background-color: #2d2d30;
     border: 1px solid #3e3e42;
-    border-radius: 6px;
-    padding: 8px 16px;
-    color: #cccccc;
-    font-weight: 600;
-    icon-size: 16px;
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: #d4d4d4;
+    selection-background-color: #e06c75;
 }
-QPushButton:hover { background-color: #3e3e42; }
-QPushButton:disabled { color: #555555; background-color: #1e1e1e; }
+QLineEdit:focus, QComboBox:focus { 
+    border: 1px solid #e06c75; 
+}
+QComboBox::drop-down { border: none; }
+
+/* Primary Button (Protect) */
+QPushButton#PrimaryButton {
+    background-color: #e06c75; /* Ruby Red */
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px;
+    icon-size: 18px;
+}
+QPushButton#PrimaryButton:hover { 
+    background-color: #c75b63; 
+}
+QPushButton#PrimaryButton:disabled { 
+    background-color: #4a2a2d; 
+    color: #8a5a5d; 
+}
+
+/* Secondary Buttons */
+QPushButton { 
+    background-color: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: #d4d4d4;
+    icon-size: 14px;
+}
+QPushButton:hover { 
+    background-color: #3e3e42; 
+}
+QPushButton:disabled { 
+    color: #555555; 
+    background-color: #1e1e1e; 
+    border: 1px solid #2d2d30;
+}
 
 /* Progress Bar */
 QProgressBar {
-    background-color: #1e1e1e;
+    background-color: #2d2d30;
     border: 1px solid #3e3e42;
-    border-radius: 6px;
+    border-radius: 4px;
     text-align: center;
     color: transparent;
-    height: 10px;
+    height: 8px;
 }
-QProgressBar::chunk { background-color: #0d99ff; border-radius: 5px; }
+QProgressBar::chunk { 
+    background-color: #e06c75; 
+    border-radius: 3px;
+}
 
 /* Log View */
 QPlainTextEdit {
-    background-color: #181818;
-    border: 1px solid #2d2d30;
-    border-radius: 8px;
-    font-family: "Consolas", monospace;
+    background-color: #1e1e1e;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    font-family: "Consolas", "Courier New", monospace;
     font-size: 12px;
     color: #d4d4d4;
     padding: 10px;
+    selection-background-color: #3e3e42;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    border: none;
+    background: #1e1e1e;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #3e3e42;
+    min-height: 20px;
+    border-radius: 6px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical:hover { 
+    background: #4e4e52; 
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { 
+    height: 0px; 
 }
 """
 
@@ -155,8 +227,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Godot Shield v1.2.0")
-        self.setMinimumSize(1050, 750)
-        self.setWindowIcon(get_icon("shield")) # Set app icon
+        self.setMinimumSize(1000, 700)
+        self.setWindowIcon(get_icon("shield"))
 
         self._worker: Optional[ProtectionWorker] = None
         self._project_path: Optional[Path] = None
@@ -177,13 +249,13 @@ class MainWindow(QMainWindow):
         # --- 1. Sidebar ---
         self.sidebar = QWidget()
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(240)
+        self.sidebar.setFixedWidth(220)
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(10, 10, 10, 20)
-        sidebar_layout.setSpacing(5)
+        sidebar_layout.setSpacing(4)
 
         # Logo
-        logo = QLabel("Godot Shield")
+        logo = QLabel("GODOT SHIELD")
         logo.setObjectName("LogoTitle")
         sidebar_layout.addWidget(logo)
 
@@ -216,7 +288,7 @@ class MainWindow(QMainWindow):
         sidebar_layout.addStretch()
         
         version = QLabel("v1.2.0")
-        version.setStyleSheet("color: #555; font-size: 11px; padding-left: 15px;")
+        version.setStyleSheet("color: #555; font-size: 11px; padding-left: 12px;")
         sidebar_layout.addWidget(version)
 
         main_layout.addWidget(self.sidebar)
@@ -240,68 +312,75 @@ class MainWindow(QMainWindow):
     def _create_protect_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
+        layout.setContentsMargins(40, 30, 40, 30) # More breathing room
+        layout.setSpacing(15)
 
         title = QLabel("Protect Your Game")
         title.setObjectName("PageTitle")
         layout.addWidget(title)
 
-        # Card: Inputs
-        card = QFrame()
-        card.setObjectName("Card")
-        card_layout = QVBoxLayout(card)
-        card_layout.setSpacing(15)
-
-        # Project
-        card_layout.addWidget(QLabel("Godot Project Folder:"))
+        # Project Section
+        layout.addWidget(QLabel("Godot Project Folder"))
         proj_row = QHBoxLayout()
         self.project_edit = QLineEdit()
         self.project_edit.setReadOnly(True)
-        self.project_edit.setPlaceholderText("Select your Godot project folder...")
-        self.project_browse_btn = QPushButton(" Browse...")
+        self.project_edit.setPlaceholderText("Select project folder...")
+        self.project_browse_btn = QPushButton(" Browse")
         self.project_browse_btn.setIcon(get_icon("folder"))
         proj_row.addWidget(self.project_edit, 1)
         proj_row.addWidget(self.project_browse_btn)
-        card_layout.addLayout(proj_row)
+        layout.addLayout(proj_row)
         
         self.invalid_label = QLabel("")
-        self.invalid_label.setStyleSheet("color: #F44747;")
+        self.invalid_label.setStyleSheet("color: #e06c75; font-size: 11px;")
         self.invalid_label.setVisible(False)
-        card_layout.addWidget(self.invalid_label)
+        layout.addWidget(self.invalid_label)
 
+        layout.addWidget(self._h_line())
+
+        # Options Section (Side by side to save vertical space)
+        opts_row = QHBoxLayout()
+        
         # Level
-        card_layout.addWidget(QLabel("Protection Level:"))
+        level_col = QVBoxLayout()
+        level_col.addWidget(QLabel("Protection Level"))
         self.level_combo = QComboBox()
         self.level_combo.addItems(["Basic", "Standard"])
-        card_layout.addWidget(self.level_combo)
+        level_col.addWidget(self.level_combo)
+        opts_row.addLayout(level_col, 1)
+
+        # Password
+        pass_col = QVBoxLayout()
+        pass_col.addWidget(QLabel("Custom Password (Optional)"))
+        self.password_edit = QLineEdit()
+        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_edit.setPlaceholderText("Auto-generate if empty")
+        pass_col.addWidget(self.password_edit)
+        opts_row.addLayout(pass_col, 1)
+
+        layout.addLayout(opts_row)
         
         self.hint_label = QLabel()
         self.hint_label.setStyleSheet("color: #858585; font-size: 11px;")
         self.hint_label.setWordWrap(True)
-        card_layout.addWidget(self.hint_label)
+        layout.addWidget(self.hint_label)
 
-        # Output
-        self.output_label = QLabel("Output Executable (.exe):")
-        card_layout.addWidget(self.output_label)
+        layout.addWidget(self._h_line())
+
+        # Output Section
+        self.output_label = QLabel("Output Executable (.exe)")
+        layout.addWidget(self.output_label)
         out_row = QHBoxLayout()
         self.output_edit = QLineEdit()
         self.output_edit.setReadOnly(True)
-        self.output_edit.setPlaceholderText("Select output .exe path...")
-        self.output_browse_btn = QPushButton(" Browse...")
+        self.output_edit.setPlaceholderText("Select output path...")
+        self.output_browse_btn = QPushButton(" Browse")
         self.output_browse_btn.setIcon(get_icon("folder"))
         out_row.addWidget(self.output_edit, 1)
         out_row.addWidget(self.output_browse_btn)
-        card_layout.addLayout(out_row)
+        layout.addLayout(out_row)
 
-        # Password
-        card_layout.addWidget(QLabel("Custom Password (Optional):"))
-        self.password_edit = QLineEdit()
-        self.password_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_edit.setPlaceholderText("Leave empty to auto-generate...")
-        card_layout.addWidget(self.password_edit)
-
-        layout.addWidget(card)
+        layout.addSpacing(20)
 
         # Actions & Progress
         self.protect_btn = QPushButton(" Protect Game")
@@ -331,8 +410,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.progress_bar)
 
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet("color: #858585;")
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("color: #858585; font-size: 11px;")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         layout.addWidget(self.status_label)
 
         layout.addStretch()
@@ -341,7 +420,7 @@ class MainWindow(QMainWindow):
     def _create_logs_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setContentsMargins(40, 30, 40, 30)
 
         header = QHBoxLayout()
         title = QLabel("Process Logs")
@@ -349,9 +428,9 @@ class MainWindow(QMainWindow):
         header.addWidget(title)
         header.addStretch()
 
-        self.save_logs_btn = QPushButton(" Save Logs")
+        self.save_logs_btn = QPushButton(" Save")
         self.save_logs_btn.setIcon(get_icon("save"))
-        self.clear_logs_btn = QPushButton(" Clear Logs")
+        self.clear_logs_btn = QPushButton(" Clear")
         self.clear_logs_btn.setIcon(get_icon("trash"))
         
         header.addWidget(self.save_logs_btn)
@@ -368,18 +447,18 @@ class MainWindow(QMainWindow):
     def _create_settings_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setContentsMargins(40, 30, 40, 30)
         title = QLabel("Settings")
         title.setObjectName("PageTitle")
         layout.addWidget(title)
-        layout.addWidget(QLabel("Settings coming in a future update..."))
+        layout.addWidget(QLabel("Settings coming in a future update."))
         layout.addStretch()
         return page
 
     def _create_about_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setContentsMargins(40, 30, 40, 30)
         title = QLabel("About Godot Shield")
         title.setObjectName("PageTitle")
         layout.addWidget(title)
@@ -392,10 +471,17 @@ class MainWindow(QMainWindow):
             "Obfuscator: June-Tree\n"
             "Engine: Godot Engine"
         )
-        text.setStyleSheet("font-size: 14px; line-height: 1.5;")
+        text.setStyleSheet("font-size: 13px; line-height: 1.6; color: #a0a0a0;")
         layout.addWidget(text)
         layout.addStretch()
         return page
+
+    def _h_line(self) -> QFrame:
+        line = QFrame()
+        line.setObjectName("HLine")
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        return line
 
     def _switch_page(self, index: int) -> None:
         self.stacked_widget.setCurrentIndex(index)
@@ -416,21 +502,27 @@ class MainWindow(QMainWindow):
     def _init_menu(self) -> None:
         try:
             menubar = self.menuBar()
-            file_menu = menubar.addMenu("File")
             
+            # File Menu
+            file_menu = menubar.addMenu("File")
             clear_action = QAction("Clear Session", self)
             clear_action.triggered.connect(self._clear_session)
             file_menu.addAction(clear_action)
-            
             file_menu.addSeparator()
-            
             exit_action = QAction("Exit", self)
             exit_action.triggered.connect(self.close)
             file_menu.addAction(exit_action)
+            
+            # Help Menu
+            help_menu = menubar.addMenu("Help")
+            about_action = QAction("About", self)
+            about_action.triggered.connect(lambda: self._switch_page(3))
+            help_menu.addAction(about_action)
+            
         except Exception:
             pass
 
-    # --- Logic (Copied from previous version to maintain functionality) ---
+    # --- Logic (Maintained exactly as previous version) ---
     def _update_protection_level_ui(self) -> None:
         level = self.level_combo.currentText()
         if level == "Basic":
@@ -478,7 +570,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Invalid Project", "Select a valid Godot project folder.")
             return
 
-        self._switch_page(1) # Switch to Logs page automatically
+        self._switch_page(1)
         self.protect_btn.setEnabled(False)
         self.cancel_btn.setEnabled(True)
         self.open_folder_btn.setEnabled(False)
@@ -579,13 +671,3 @@ class MainWindow(QMainWindow):
         self.protect_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self.log_view.append_colored("Session cleared. Ready for new project.", "info")
-
-    def _open_backup_folder(self) -> None:
-        if not self._project_path:
-            QMessageBox.warning(self, "No Project", "Please select a project folder first.")
-            return
-        backup_dir = self._project_path.parent / ".godot_shield_backups"
-        if backup_dir.exists():
-            self._open_folder(backup_dir)
-        else:
-            QMessageBox.information(self, "No Backups", "No backup folder found.")
