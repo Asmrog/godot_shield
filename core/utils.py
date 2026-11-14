@@ -7,6 +7,7 @@ from __future__ import annotations
 import secrets
 import shutil
 import sys
+import hashlib
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +15,13 @@ from typing import Optional
 def generate_encryption_key() -> str:
     # Generate a 256-bit AES encryption key (64-char hex).
     return secrets.token_hex(32)
+
+
+def generate_key_from_password(password: str) -> str:
+    # Derives a 64-char hex key (256-bit) from a user password using SHA-256.
+    if not password:
+        return secrets.token_hex(32)  # fallback to random
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 
 def is_valid_godot_project(path: Path) -> bool:
