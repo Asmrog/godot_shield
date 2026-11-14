@@ -12,12 +12,12 @@ from typing import Optional
 
 
 def generate_encryption_key() -> str:
-    """Generate a 256-bit AES encryption key (64-char hex)."""
+    # Generate a 256-bit AES encryption key (64-char hex).
     return secrets.token_hex(32)
 
 
 def is_valid_godot_project(path: Path) -> bool:
-    """Return True if path/project.godot exists."""
+    # Return True if path/project.godot exists.
     try:
         p = Path(path).resolve()
         return p.is_dir() and (p / "project.godot").is_file()
@@ -26,7 +26,7 @@ def is_valid_godot_project(path: Path) -> bool:
 
 
 def find_godot_executable() -> Optional[Path]:
-    """Search PATH for godot or godot4."""
+    # Search PATH for godot or godot4.
     try:
         for name in ["godot", "godot4"]:
             found = shutil.which(name)
@@ -38,10 +38,8 @@ def find_godot_executable() -> Optional[Path]:
 
 
 def find_obfuscator_script() -> Optional[Path]:
-    """
-    Locate obfuscator/scripts/gdscript_obfuscator.py relative to project.
-    Handles both running from source and running as a compiled EXE.
-    """
+    # Locate obfuscator/scripts/gdscript_obfuscator.py relative to project.
+    # Handles both running from source and running as a compiled EXE.
     try:
         if getattr(sys, 'frozen', False):
             # Running as compiled EXE (PyInstaller)
@@ -65,8 +63,7 @@ def find_obfuscator_script() -> Optional[Path]:
 
 
 def find_python_executable() -> Optional[str]:
-    """Find a valid Python executable to run external scripts."""
-    # If running from source, use the current interpreter
+    # Find a valid Python executable to run external scripts.
     if not getattr(sys, 'frozen', False):
         return sys.executable
     
@@ -80,7 +77,7 @@ def find_python_executable() -> Optional[str]:
 
 
 def format_size(num_bytes) -> str:
-    """Human-readable file size."""
+    # Human-readable file size.
     try:
         size = float(num_bytes)
         for unit in ["B", "KB", "MB", "GB", "TB"]:
@@ -93,7 +90,7 @@ def format_size(num_bytes) -> str:
 
 
 def ensure_output_dir(path: Path) -> Path:
-    """Ensure parent dir of a file path exists."""
+    # Ensure parent dir of a file path exists.
     target = Path(path).resolve()
     (target.parent if target.suffix else target).mkdir(parents=True, exist_ok=True)
     return target
