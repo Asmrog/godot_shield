@@ -1,19 +1,12 @@
 """
-GUI entry point for Godot Shield v1.2.0
+GUI entry point for Godot Shield v1.2.0-stable
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from PySide6.QtWidgets import QApplication, QSplashScreen
-from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QPen, QBrush
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF
 
-from gui.app import DARK_QSS, MainWindow
-
-# --- Path Helpers ---
-import sys
 def resource_path_root(relative_path):
     try:
         base_path = Path(sys._MEIPASS)
@@ -22,6 +15,13 @@ def resource_path_root(relative_path):
     return base_path / relative_path
 
 BASE_DIR = resource_path_root(".")
+
+from PySide6.QtWidgets import QApplication, QSplashScreen
+from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QPen, QBrush
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF
+
+from gui.app import DARK_QSS, MainWindow
+
 ICON_PNG = BASE_DIR / "icon.png"
 ICON_ICO = BASE_DIR / "icon.ico"
 ASSET_SVG = BASE_DIR / "assets" / "icons" / "shield.svg"
@@ -153,7 +153,7 @@ def main() -> None:
         # Draw Version
         painter.setPen(QColor("#555555"))
         painter.setFont(QFont("Segoe UI", 10))
-        painter.drawText(splash_pix.rect().adjusted(0, 370, 0, 0), Qt.AlignmentFlag.AlignCenter, "v1.2.0")
+        painter.drawText(splash_pix.rect().adjusted(0, 370, 0, 0), Qt.AlignmentFlag.AlignCenter, "v1.2.0-stable")
         painter.end()
 
         # --- Show Animated Splash ---

@@ -1,13 +1,24 @@
 """
-Main PySide6 window for Godot Shield v1.2.0 
+Main PySide6 window for Godot Shield v1.2.0-stable 
 """
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+def resource_path(relative_path):
+    try:
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        base_path = Path(__file__).resolve().parent.parent
+    return base_path / relative_path
+
+ICONS_DIR = resource_path("assets/icons")
+
 import os
 import platform
 import subprocess
-from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, Slot, QSize, QSettings
@@ -22,17 +33,6 @@ from core.protector import ProtectionResult
 from core.utils import find_obfuscator_script, is_valid_godot_project
 from gui.widgets import ColoredLogView
 from gui.workers import ProtectionWorker
-
-# --- Path Helper for Icons ---
-import sys
-def resource_path(relative_path):
-    try:
-        base_path = Path(sys._MEIPASS)
-    except Exception:
-        base_path = Path(__file__).resolve().parent.parent
-    return base_path / relative_path
-
-ICONS_DIR = resource_path("assets/icons")
 
 def get_icon(name: str) -> QIcon:
     path = ICONS_DIR / f"{name}.svg"
@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Godot Shield v1.2.0")
+        self.setWindowTitle("Godot Shield v1.2.0-stable")
         self.setMinimumSize(1000, 700)
         self.setWindowIcon(get_icon("shield"))
 
@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
 
         sidebar_layout.addStretch()
         
-        version = QLabel("v1.2.0")
+        version = QLabel("v1.2.0-stable")
         version.setStyleSheet("color: #888; font-size: 11px; padding-left: 12px;")
         sidebar_layout.addWidget(version)
 
@@ -369,7 +369,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(title)
         
         text = QLabel(
-            "Godot Shield v1.2.0\nMIT License\n\n"
+            "Godot Shield v1.2.0-stable\nMIT License\n\n"
             "Automated protection for Godot games.\n"
             "Obfuscation + AES-256 PCK Encryption.\n\n"
             "Credits:\n"
