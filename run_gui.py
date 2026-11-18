@@ -17,7 +17,7 @@ def resource_path_root(relative_path):
 BASE_DIR = resource_path_root(".")
 
 from PySide6.QtWidgets import QApplication, QSplashScreen
-from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QPen, QBrush
+from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QPen, QBrush, QScreen, QGuiApplication
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF
 
 from gui.app import DARK_QSS, MainWindow
@@ -25,6 +25,23 @@ from gui.app import DARK_QSS, MainWindow
 ICON_PNG = BASE_DIR / "icon.png"
 ICON_ICO = BASE_DIR / "icon.ico"
 ASSET_SVG = BASE_DIR / "assets" / "icons" / "shield.svg"
+
+
+def move_to_secondary_screen(widget):
+    screens = QApplication.screens()
+    if len(screens) > 1:
+        # Find a screen that is not the primary one
+        primary = QApplication.primaryScreen()
+        for screen in screens:
+            if screen != primary:
+                # Calculate center of the secondary screen
+                rect = screen.availableGeometry()
+                # For splash screen, center it. For main window, move to top-left or center.
+                x = rect.x() + (rect.width() - widget.width()) // 2
+                y = rect.y() + (rect.height() - widget.height()) // 2
+                widget.move(x, y)
+                return
+
 
 def get_logo_pixmap(size: int) -> QPixmap:
     """Loads the best available logo and scales it to the given size."""
@@ -159,13 +176,18 @@ def main() -> None:
         # --- Show Animated Splash ---
         splash = AnimatedSplashScreen(splash_pix)
         splash.show()
+        move_to_secondary_screen(splash)
         app.processEvents() 
 
         # --- Load Main Window ---
         window = MainWindow()
-        
+
         # Show main window after ~2.5 seconds (when loading bar finishes)
-        QTimer.singleShot(2500, window.show)
+        def _show_main_window():
+            window.show()
+            move_to_secondary_screen(window)
+
+        QTimer.singleShot(2500, _show_main_window)
 
         sys.exit(app.exec())
 
