@@ -54,6 +54,8 @@ def protect_project(
     output_path: Optional[Path] = None,
     custom_password: Optional[str] = None,
     auto_backup: bool = True,
+    name_length: int = 8,
+    godot_path: Optional[str] = None,
     progress: Optional[Callable[[str, int], None]] = None,
     logger: Optional[Callable[[str, str], None]] = None,
 ) -> ProtectionResult:
@@ -75,6 +77,8 @@ def protect_project(
                      If None, defaults to <project>/build/game.exe.
         custom_password: Optional password used to derive the AES-256 key.
         auto_backup: Whether to create a safety backup before obfuscation.
+        name_length: Generated identifier length for obfuscation (3-20).
+        godot_path: Optional custom Godot executable path for export.
         progress: Callback accepting (step_name, percent) for UI updates.
         logger: Callback accepting (message, severity) where severity is
                 "info", "success", "warning", "error".
@@ -213,7 +217,7 @@ def protect_project(
         logger("Starting GDScript obfuscation...", "info")
 
         try:
-            obfuscated = run_obfuscation(project_path, logger)
+            obfuscated = run_obfuscation(project_path, logger, name_length=name_length)
         except Exception as exc:
             logger(f"Exception during obfuscation: {exc}", "error")
             obfuscated = False
@@ -276,13 +280,22 @@ def protect_project(
                 )
 
             # Check if Godot executable exists; if not, treat as warning and return partial success
-            godot_exe = find_godot_executable()
+            godot_exe = find_godot_executable(godot_path)
             if godot_exe is None:
                 # Per spec: if Godot not installed, still obfuscate and tell user export was skipped
+                if godot_path:
+                    detail = (
+                        f"The configured custom path is invalid: {godot_path}. "
+                        "Fix it in Settings or clear it to use the system PATH."
+                    )
+                else:
+                    detail = (
+                        "Install Godot 4.x and ensure 'godot' is in your PATH to enable export."
+                    )
                 logger(
                     "Godot executable not found. Export skipped. "
                     "Obfuscation was successful, but no encrypted build was created. "
-                    "Install Godot 4.x and ensure 'godot' is in your PATH to enable export.",
+                    + detail,
                     "warning",
                 )
                 progress("Export skipped (Godot not found)", 100)
@@ -300,7 +313,13 @@ def protect_project(
             logger("Starting encrypted export...", "info")
 
             try:
-                exported = export_game(project_path, output_path, encryption_key, logger)
+                exported = export_game(
+                    project_path,
+                    output_path,
+                    encryption_key,
+                    logger,
+                    godot_path=godot_path,
+                )
             except Exception as exc:
                 logger(f"Exception during export: {exc}", "error")
                 exported = False

@@ -13,7 +13,9 @@ from typing import Optional
 
 from PySide6.QtCore import QThread, Signal
 
+from core.i18n import APP_VERSION
 from core.protector import ProtectionResult, protect_project
+from core.updater import UpdateCheckResult, check_for_updates
 
 
 class ProtectionWorker(QThread):
@@ -40,6 +42,8 @@ class ProtectionWorker(QThread):
         output_path: Optional[Path] = None,
         custom_password: Optional[str] = None,
         auto_backup: bool = True,
+        name_length: int = 8,
+        godot_path: Optional[str] = None,
         parent=None,
     ) -> None:
         """
@@ -51,6 +55,8 @@ class ProtectionWorker(QThread):
             output_path: Optional output exe path for standard level.
             custom_password: Optional password for AES encryption.
             auto_backup: Whether the pipeline should create a safety backup.
+            name_length: Generated identifier length for obfuscation (3-20).
+            godot_path: Optional custom Godot executable path for export.
             parent: Optional parent QObject.
         """
         super().__init__(parent)
@@ -59,6 +65,8 @@ class ProtectionWorker(QThread):
         self.output_path = Path(output_path) if output_path else None
         self.custom_password = custom_password
         self.auto_backup = auto_backup
+        self.name_length = name_length
+        self.godot_path = godot_path or ""
         # Cooperative cancellation flag — checked between pipeline steps
         self._cancelled = False
 
@@ -119,6 +127,8 @@ class ProtectionWorker(QThread):
                 output_path=self.output_path,
                 custom_password=self.custom_password,
                 auto_backup=self.auto_backup,
+                name_length=self.name_length,
+                godot_path=self.godot_path,
                 progress=progress_callback,
                 logger=logger_callback,
             )
@@ -150,3 +160,35 @@ class ProtectionWorker(QThread):
                 self.protection_finished.emit(fail_result)
             except Exception:
                 pass
+
+
+class UpdateCheckerWorker(QThread):
+    """Check GitHub Releases in the background so the UI never freezes.
+
+    Signals:
+        update_checked: Emitted with an UpdateCheckResult when the check ends.
+    """
+
+    update_checked = Signal(object)
+
+    def __init__(
+        self,
+        current_version: str = APP_VERSION,
+        manual: bool = False,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self.current_version = current_version
+        # True for the Settings "Check Now" button, False for the startup check.
+        self.manual = manual
+
+    def run(self) -> None:
+        try:
+            result = check_for_updates(self.current_version)
+        except Exception as exc:
+            result = UpdateCheckResult(error=str(exc) or exc.__class__.__name__)
+
+        try:
+            self.update_checked.emit(result)
+        except Exception:
+            pass

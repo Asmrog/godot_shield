@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from .utils import ensure_output_dir, find_godot_executable
 
@@ -21,6 +21,7 @@ def export_game(
     output_exe: Path,
     encryption_key: str,
     logger: Callable[[str, str], None],
+    godot_path: Optional[str] = None,
 ) -> bool:
     """
     Export the Godot project with AES-256 PCK encryption.
@@ -34,6 +35,8 @@ def export_game(
         output_exe: Desired output .exe path (e.g., build/game.exe).
         encryption_key: 64-char hex string for AES-256 encryption.
         logger: Callback accepting (message, severity).
+        godot_path: Optional custom Godot executable path from Settings.
+                    Empty/None means use the system PATH.
 
     Returns:
         True if export succeeded and output file exists, False otherwise.
@@ -42,14 +45,21 @@ def export_game(
         project_path = Path(project_path).resolve()
         output_exe = Path(output_exe).resolve()
 
-        # Step 1: Locate Godot executable
-        godot_exe = find_godot_executable()
+        # Step 1: Locate Godot executable (custom path wins over PATH)
+        godot_exe = find_godot_executable(godot_path)
         if godot_exe is None:
-            logger(
-                "Godot executable not found in PATH. Searched for 'godot' and 'godot4'. "
-                "Export will be skipped. Please install Godot 4.x and add it to PATH.",
-                "warning",
-            )
+            if godot_path:
+                logger(
+                    f"Custom Godot executable path is invalid or missing: {godot_path}. "
+                    "Export will be skipped.",
+                    "warning",
+                )
+            else:
+                logger(
+                    "Godot executable not found in PATH. Searched for 'godot' and 'godot4'. "
+                    "Export will be skipped. Please install Godot 4.x and add it to PATH.",
+                    "warning",
+                )
             return False
 
         logger(f"Found Godot executable: {godot_exe}", "info")

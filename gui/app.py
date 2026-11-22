@@ -19,21 +19,28 @@ ICONS_DIR = resource_path("assets/icons")
 import os
 import platform
 import subprocess
+import webbrowser
 from typing import Optional
 
 from PySide6.QtCore import Qt, Slot, QSize, QSettings
 from PySide6.QtGui import QAction, QFont, QIcon
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
-    QMainWindow, QMessageBox, QProgressBar, QPushButton,
+    QMainWindow, QMessageBox, QProgressBar, QPushButton, QSpinBox,
     QVBoxLayout, QWidget, QStackedWidget, QFrame, QFormLayout
 )
 
 from core.i18n import APP_VERSION, LANGUAGE_OPTIONS, SUPPORTED_LANGUAGES, get_text
 from core.protector import ProtectionResult
-from core.utils import bool_from_setting, find_obfuscator_script, is_valid_godot_project
+from core.updater import FALLBACK_RELEASE_URL
+from core.utils import (
+    bool_from_setting,
+    find_obfuscator_script,
+    int_from_setting,
+    is_valid_godot_project,
+)
 from gui.widgets import ColoredLogView
-from gui.workers import ProtectionWorker
+from gui.workers import ProtectionWorker, UpdateCheckerWorker
 
 
 def rtl_qss(qss: str) -> str:
@@ -91,6 +98,8 @@ QPushButton#PrimaryButton:disabled { background-color: #4a2a2d; color: #8a5a5d; 
 QPushButton { background-color: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; padding: 6px 12px; color: #d4d4d4; icon-size: 14px; }
 QPushButton:hover { background-color: #3e3e42; }
 QPushButton:disabled { color: #555555; background-color: #1e1e1e; border: 1px solid #2d2d30; }
+QPushButton#DangerButton { background-color: #8b2635; border: 1px solid #a13042; color: #ffffff; }
+QPushButton#DangerButton:hover { background-color: #a13042; }
 
 QProgressBar { background-color: #2d2d30; border: 1px solid #3e3e42; border-radius: 4px; text-align: center; color: transparent; height: 8px; }
 QProgressBar::chunk { background-color: #e06c75; border-radius: 3px; }
@@ -131,6 +140,8 @@ QPushButton#PrimaryButton:disabled { background-color: #f0c8cc; color: #ffffff; 
 QPushButton { background-color: #f0f0f0; border: 1px solid #cccccc; border-radius: 4px; padding: 6px 12px; color: #333333; icon-size: 14px; }
 QPushButton:hover { background-color: #e0e0e0; }
 QPushButton:disabled { color: #999999; background-color: #f8f8f8; border: 1px solid #e5e5e5; }
+QPushButton#DangerButton { background-color: #c0392b; border: 1px solid #a93226; color: #ffffff; }
+QPushButton#DangerButton:hover { background-color: #a93226; }
 
 QProgressBar { background-color: #f0f0f0; border: 1px solid #cccccc; border-radius: 4px; text-align: center; color: transparent; height: 8px; }
 QProgressBar::chunk { background-color: #e06c75; border-radius: 3px; }
@@ -147,6 +158,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(get_icon("shield"))
 
         self._worker: Optional[ProtectionWorker] = None
+        self._update_worker: Optional[UpdateCheckerWorker] = None
         self._project_path: Optional[Path] = None
         self._output_path: Optional[Path] = None
         self._status_key = "ready"
@@ -163,6 +175,8 @@ class MainWindow(QMainWindow):
         self._load_theme()
         self.update_ui_language()
         self._update_protection_level_ui()
+        # Kick off the optional startup update check once the UI is ready.
+        self._start_update_check(manual=False)
 
     def _init_ui(self) -> None:
         central = QWidget()
@@ -362,7 +376,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(40, 30, 40, 30)
         layout.setSpacing(20)
-        
+
         self.page_settings_title = QLabel(tr("settings", self.current_lang))
         self.page_settings_title.setObjectName("PageTitle")
         layout.addWidget(self.page_settings_title)
@@ -390,6 +404,65 @@ class MainWindow(QMainWindow):
         self.splash_check = QCheckBox(tr("settings_splash", self.current_lang))
         self.splash_check.setChecked(bool_from_setting(self.settings.value("show_splash", True)))
         form.addRow(self.splash_check)
+
+        self.updates_check = QCheckBox(tr("settings_check_updates", self.current_lang))
+        self.updates_check.setChecked(bool_from_setting(self.settings.value("check_updates", True)))
+        form.addRow(self.updates_check)
+
+        self.check_updates_now_btn = QPushButton(" " + tr("check_updates_now", self.current_lang))
+        self.check_updates_now_btn.setIcon(get_icon("search"))
+        form.addRow(self.check_updates_now_btn)
+
+        # Custom Godot executable path (empty means use the system PATH).
+        self.settings_godot_path_label = QLabel(
+            tr("settings_godot_path", self.current_lang) + ":"
+        )
+        self.godot_path_edit = QLineEdit()
+        self.godot_path_edit.setReadOnly(True)
+        self.godot_path_edit.setText(str(self.settings.value("godot_path", "") or ""))
+        self.godot_path_edit.setPlaceholderText(tr("settings_godot_path_hint", self.current_lang))
+        self.godot_path_edit.setToolTip(tr("settings_godot_path_hint", self.current_lang))
+        self.godot_browse_btn = QPushButton(" " + tr("browse", self.current_lang))
+        self.godot_browse_btn.setIcon(get_icon("folder"))
+        godot_field = QWidget()
+        godot_row = QHBoxLayout(godot_field)
+        godot_row.setContentsMargins(0, 0, 0, 0)
+        godot_row.addWidget(self.godot_path_edit, 1)
+        godot_row.addWidget(self.godot_browse_btn)
+        form.addRow(self.settings_godot_path_label, godot_field)
+
+        # Obfuscator-generated identifier length.
+        self.settings_name_length_label = QLabel(
+            tr("settings_name_length", self.current_lang) + ":"
+        )
+        self.name_length_spin = QSpinBox()
+        self.name_length_spin.setRange(3, 20)
+        self.name_length_spin.setValue(
+            int_from_setting(self.settings.value("name_length", 8), 8, 3, 20)
+        )
+        form.addRow(self.settings_name_length_label, self.name_length_spin)
+
+        # Default folder used for standard-level exports.
+        self.settings_default_output_label = QLabel(
+            tr("settings_default_output", self.current_lang) + ":"
+        )
+        self.default_output_edit = QLineEdit()
+        self.default_output_edit.setReadOnly(True)
+        self.default_output_edit.setText(str(self.settings.value("default_output", "") or ""))
+        self.default_output_edit.setPlaceholderText(tr("select_output", self.current_lang))
+        self.default_output_browse_btn = QPushButton(" " + tr("browse", self.current_lang))
+        self.default_output_browse_btn.setIcon(get_icon("folder"))
+        output_field = QWidget()
+        output_row = QHBoxLayout(output_field)
+        output_row.setContentsMargins(0, 0, 0, 0)
+        output_row.addWidget(self.default_output_edit, 1)
+        output_row.addWidget(self.default_output_browse_btn)
+        form.addRow(self.settings_default_output_label, output_field)
+
+        form.addRow(self._h_line())
+        self.reset_btn = QPushButton(" " + tr("settings_reset", self.current_lang))
+        self.reset_btn.setObjectName("DangerButton")
+        form.addRow(self.reset_btn)
 
         layout.addWidget(settings_group)
         layout.addWidget(self._h_line())
@@ -436,6 +509,12 @@ class MainWindow(QMainWindow):
         self.language_combo.currentIndexChanged.connect(self._on_language_changed)
         self.backup_check.toggled.connect(self._on_backup_toggled)
         self.splash_check.toggled.connect(self._on_splash_toggled)
+        self.updates_check.toggled.connect(self._on_updates_toggled)
+        self.check_updates_now_btn.clicked.connect(self._check_updates_now)
+        self.godot_browse_btn.clicked.connect(self._browse_godot_path)
+        self.name_length_spin.valueChanged.connect(self._on_name_length_changed)
+        self.default_output_browse_btn.clicked.connect(self._browse_default_output)
+        self.reset_btn.clicked.connect(self._on_reset_settings)
         self.protect_btn.clicked.connect(self._start_protection)
         self.cancel_btn.clicked.connect(self._cancel_protection)
         self.check_btn.clicked.connect(self._check_tools)
@@ -470,6 +549,10 @@ class MainWindow(QMainWindow):
             "theme": "dark",
             "auto_backup": True,
             "show_splash": True,
+            "check_updates": True,
+            "godot_path": "",
+            "name_length": 8,
+            "default_output": "",
         }
         for key, value in defaults.items():
             if not self.settings.contains(key):
@@ -510,6 +593,122 @@ class MainWindow(QMainWindow):
 
     def _on_splash_toggled(self, checked: bool) -> None:
         self.settings.setValue("show_splash", bool(checked))
+
+    def _on_updates_toggled(self, checked: bool) -> None:
+        self.settings.setValue("check_updates", bool(checked))
+
+    def _check_updates_now(self) -> None:
+        self._start_update_check(manual=True)
+
+    def _start_update_check(self, manual: bool = False) -> None:
+        if not manual and not bool_from_setting(self.settings.value("check_updates", True)):
+            return
+        if self._update_worker is not None and self._update_worker.isRunning():
+            return
+        self.check_updates_now_btn.setEnabled(False)
+        worker = UpdateCheckerWorker(current_version=APP_VERSION, manual=manual)
+        self._update_worker = worker
+        worker.update_checked.connect(
+            lambda result, is_manual=manual: self._on_update_checked(result, is_manual)
+        )
+        worker.finished.connect(
+            lambda w=worker: self._on_update_worker_finished(w)
+        )
+        worker.start()
+
+    def _on_update_worker_finished(self, worker: UpdateCheckerWorker) -> None:
+        self.check_updates_now_btn.setEnabled(True)
+        if self._update_worker is worker:
+            self._update_worker = None
+
+    def _on_update_checked(self, result, manual: bool = False) -> None:
+        t = lambda key: get_text(self.current_lang, key)
+
+        # Startup checks stay silent unless something new is actually available.
+        if getattr(result, "error", None):
+            if manual:
+                QMessageBox.warning(self, t("update_error_title"), t("update_error_msg"))
+            return
+
+        if not getattr(result, "available", False):
+            if manual:
+                QMessageBox.information(self, t("update_latest_title"), t("update_latest_msg"))
+            return
+
+        latest = getattr(result, "latest_version", "") or ""
+        url = getattr(result, "release_url", "") or FALLBACK_RELEASE_URL
+        answer = QMessageBox.question(
+            self,
+            t("update_available_title"),
+            t("update_available_msg").format(latest=latest),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
+
+    def _browse_godot_path(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            get_text(self.current_lang, "settings_godot_path"),
+            str(Path.home()),
+            "Executable (*.exe);;All Files (*)",
+        )
+        if path:
+            self.godot_path_edit.setText(path)
+            self.settings.setValue("godot_path", path)
+
+    def _on_name_length_changed(self, value: int) -> None:
+        self.settings.setValue("name_length", int(value))
+
+    def _browse_default_output(self) -> None:
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            get_text(self.current_lang, "settings_default_output"),
+            str(Path.home()),
+        )
+        if folder:
+            self.default_output_edit.setText(folder)
+            self.settings.setValue("default_output", folder)
+            if (
+                self._project_path
+                and self.level_combo.currentData() == "standard"
+                and not self.output_edit.text()
+            ):
+                self._apply_default_output_path(self._project_path)
+
+    def _default_output_path(self, project: Path) -> Path:
+        folder = str(self.settings.value("default_output", "") or "").strip()
+        if folder:
+            return Path(folder).expanduser() / f"{project.name}.exe"
+        return project / "build" / "game.exe"
+
+    def _apply_default_output_path(self, project: Path) -> None:
+        default_out = self._default_output_path(project)
+        self._output_path = default_out
+        self.output_edit.setText(str(default_out))
+
+    def _on_reset_settings(self) -> None:
+        answer = QMessageBox.question(
+            self,
+            get_text(self.current_lang, "settings_reset"),
+            get_text(self.current_lang, "reset_confirm"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.settings.clear()
+        self.settings.sync()
+        QMessageBox.information(
+            self,
+            get_text(self.current_lang, "settings_reset"),
+            get_text(self.current_lang, "reset_success"),
+        )
+        self.close()
 
     def update_ui_language(self) -> None:
         """Refresh every translated element and mirror the layout for Arabic."""
@@ -562,6 +761,17 @@ class MainWindow(QMainWindow):
         self.settings_language_label.setText(t("settings_language") + ":")
         self.backup_check.setText(t("settings_backup"))
         self.splash_check.setText(t("settings_splash"))
+        self.updates_check.setText(t("settings_check_updates"))
+        self.check_updates_now_btn.setText(" " + t("check_updates_now"))
+        self.settings_godot_path_label.setText(t("settings_godot_path") + ":")
+        self.godot_path_edit.setPlaceholderText(t("settings_godot_path_hint"))
+        self.godot_path_edit.setToolTip(t("settings_godot_path_hint"))
+        self.godot_browse_btn.setText(" " + t("browse"))
+        self.settings_name_length_label.setText(t("settings_name_length") + ":")
+        self.settings_default_output_label.setText(t("settings_default_output") + ":")
+        self.default_output_edit.setPlaceholderText(t("select_output"))
+        self.default_output_browse_btn.setText(" " + t("browse"))
+        self.reset_btn.setText(" " + t("settings_reset"))
         self.more_settings_label.setText(t("more_settings"))
 
         self.page_about_title.setText(t("about_title"))
@@ -613,6 +823,8 @@ class MainWindow(QMainWindow):
             self.status_label.setText(t(self._status_key))
 
         self._apply_theme(self.theme_combo.currentData() or "dark")
+        # The level hint is translated here too, not just the widgets above.
+        self._update_protection_level_ui()
 
     # --- Logic (Maintained) ---
     def _update_protection_level_ui(self) -> None:
@@ -628,9 +840,7 @@ class MainWindow(QMainWindow):
             self.output_edit.setEnabled(True)
             self.output_browse_btn.setEnabled(True)
             if self._project_path and not self.output_edit.text():
-                default_out = self._project_path / "build" / "game.exe"
-                self._output_path = default_out
-                self.output_edit.setText(str(default_out))
+                self._apply_default_output_path(self._project_path)
 
     def _browse_project(self) -> None:
         folder = QFileDialog.getExistingDirectory(
@@ -647,9 +857,7 @@ class MainWindow(QMainWindow):
                 self.invalid_label.setVisible(False)
                 self.log_view.append_colored(f"Selected project: {path}", "info")
                 if self.level_combo.currentData() == "standard" and not self.output_edit.text():
-                    default_out = path / "build" / "game.exe"
-                    self._output_path = default_out
-                    self.output_edit.setText(str(default_out))
+                    self._apply_default_output_path(path)
 
     def _browse_output(self) -> None:
         default_dir = str(self._project_path / "build" if self._project_path else Path.home())
@@ -687,6 +895,8 @@ class MainWindow(QMainWindow):
             output_path=output,
             custom_password=custom_password,
             auto_backup=self.backup_check.isChecked(),
+            name_length=self.name_length_spin.value(),
+            godot_path=self.godot_path_edit.text().strip(),
         )
         self._worker.progress.connect(self._on_progress)
         self._worker.log.connect(self._on_log)

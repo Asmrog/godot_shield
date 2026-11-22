@@ -11,9 +11,22 @@ from typing import Callable
 from .utils import find_obfuscator_script, find_python_executable
 
 
-def run_obfuscation(project_path: Path, logger: Callable[[str, str], None]) -> bool:
-    """Run the external obfuscator on the project."""
+def run_obfuscation(
+    project_path: Path,
+    logger: Callable[[str, str], None],
+    name_length: int = 8,
+) -> bool:
+    """Run the external obfuscator on the project.
+
+    name_length controls the generated identifier length and is clamped to the
+    same 3-20 range exposed by the Settings spin box.
+    """
     try:
+        try:
+            name_length = max(3, min(20, int(name_length)))
+        except (TypeError, ValueError):
+            name_length = 8
+
         script_path = find_obfuscator_script()
         if script_path is None:
             logger(
@@ -33,7 +46,7 @@ def run_obfuscation(project_path: Path, logger: Callable[[str, str], None]) -> b
 
         logger(f"Found obfuscator: {script_path}", "info")
         project_path = Path(project_path).resolve()
-        
+
         if not project_path.exists():
             logger(f"Project path does not exist: {project_path}", "error")
             return False
@@ -54,8 +67,8 @@ def run_obfuscation(project_path: Path, logger: Callable[[str, str], None]) -> b
         )
 
         # Provide inputs: 1. Path, 2. Overwrite confirmation, 3. Name length
-        stdin_input = f"{project_path}\nyes\n8\n"
-        
+        stdin_input = f"{project_path}\nyes\n{name_length}\n"
+
         try:
             stdout, stderr = process.communicate(input=stdin_input, timeout=300)
         except subprocess.TimeoutExpired:
@@ -70,7 +83,7 @@ def run_obfuscation(project_path: Path, logger: Callable[[str, str], None]) -> b
                 if s:
                     sev = "success" if ("success" in s.lower() or "completed" in s.lower()) else "info"
                     logger(s, sev)
-                    
+
         if stderr:
             for line in stderr.splitlines():
                 s = line.strip()

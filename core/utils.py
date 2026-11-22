@@ -23,6 +23,25 @@ def bool_from_setting(value, default: bool = True) -> bool:
     return bool(value)
 
 
+def int_from_setting(
+    value,
+    default: int,
+    minimum: Optional[int] = None,
+    maximum: Optional[int] = None,
+) -> int:
+    # QSettings may store numbers as strings; keep saved values inside the
+    # allowed range so a corrupt setting can never break a spin box or CLI.
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        result = default
+    if minimum is not None:
+        result = max(minimum, result)
+    if maximum is not None:
+        result = min(maximum, result)
+    return result
+
+
 def generate_encryption_key() -> str:
     # Generate a 256-bit AES encryption key (64-char hex).
     return secrets.token_hex(32)
@@ -44,7 +63,21 @@ def is_valid_godot_project(path: Path) -> bool:
         return False
 
 
-def find_godot_executable() -> Optional[Path]:
+def find_godot_executable(custom_path: Optional[Path | str] = None) -> Optional[Path]:
+    """Locate Godot, preferring a custom executable path from Settings.
+
+    An explicitly configured path is authoritative: if it is invalid we do
+    not silently fall back to a different Godot found on PATH.
+    """
+    if custom_path:
+        try:
+            candidate = Path(custom_path).expanduser()
+            if candidate.is_file():
+                return candidate.resolve()
+            return None
+        except Exception:
+            return None
+
     # Search PATH for godot or godot4.
     try:
         for name in ["godot", "godot4"]:
