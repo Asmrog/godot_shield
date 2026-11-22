@@ -1,5 +1,5 @@
 """
-GUI entry point for Godot Shield v1.2.0-stable
+GUI entry point for Godot Shield v1.2.1
 """
 
 from __future__ import annotations
@@ -18,8 +18,10 @@ BASE_DIR = resource_path_root(".")
 
 from PySide6.QtWidgets import QApplication, QSplashScreen
 from PySide6.QtGui import QPixmap, QColor, QPainter, QFont, QIcon, QPen, QBrush, QScreen, QGuiApplication
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QRectF, QSettings
 
+from core.i18n import APP_VERSION, get_text
+from core.utils import bool_from_setting
 from gui.app import DARK_QSS, MainWindow
 
 ICON_PNG = BASE_DIR / "icon.png"
@@ -57,13 +59,14 @@ def get_logo_pixmap(size: int) -> QPixmap:
 class AnimatedSplashScreen(QSplashScreen):
     """Custom splash screen with fade-in animation and a loading bar."""
     
-    def __init__(self, pixmap: QPixmap):
+    def __init__(self, pixmap: QPixmap, lang: str = "en"):
         super().__init__(pixmap)
+        self._lang = lang
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         
         self._progress = 0
-        self._status_text = "Initializing..."
+        self._status_text = get_text(lang, "splash_initializing")
         
         # Fade-in animation
         self._animation = QPropertyAnimation(self, b"windowOpacity")
@@ -81,14 +84,14 @@ class AnimatedSplashScreen(QSplashScreen):
     def _update_progress(self):
         self._progress += 2
         if self._progress <= 30:
-            self._status_text = "Loading modules..."
+            self._status_text = get_text(self._lang, "splash_loading")
         elif self._progress <= 60:
-            self._status_text = "Checking dependencies..."
+            self._status_text = get_text(self._lang, "splash_deps")
         elif self._progress <= 90:
-            self._status_text = "Preparing interface..."
+            self._status_text = get_text(self._lang, "splash_preparing")
         elif self._progress >= 100:
             self._progress = 100
-            self._status_text = "Ready."
+            self._status_text = get_text(self._lang, "splash_ready")
             self._timer.stop()
             self.close()
             
@@ -140,6 +143,10 @@ def main() -> None:
         except Exception:
             pass
 
+        settings = QSettings("Asmrog", "GodotShield")
+        show_splash = bool_from_setting(settings.value("show_splash", True))
+        lang = str(settings.value("language", "en") or "en")
+
         # --- Create Base Splash Pixmap ---
         splash_pix = QPixmap(600, 400)
         splash_pix.fill(QColor("#1e1e1e"))
@@ -160,34 +167,38 @@ def main() -> None:
         title_font = QFont("Segoe UI", 28, QFont.Weight.Bold)
         title_font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 2)
         painter.setFont(title_font)
-        painter.drawText(splash_pix.rect().adjusted(0, 120, 0, 0), Qt.AlignmentFlag.AlignCenter, "GODOT SHIELD")
+        painter.drawText(splash_pix.rect().adjusted(0, 120, 0, 0), Qt.AlignmentFlag.AlignCenter, get_text(lang, "app_title_short"))
         
         # Draw Subtitle
         painter.setPen(QColor("#858585"))
         painter.setFont(QFont("Segoe UI", 12))
-        painter.drawText(splash_pix.rect().adjusted(0, 170, 0, 0), Qt.AlignmentFlag.AlignCenter, "Automated Game Protection")
+        painter.drawText(splash_pix.rect().adjusted(0, 170, 0, 0), Qt.AlignmentFlag.AlignCenter, get_text(lang, "splash_subtitle"))
         
         # Draw Version
         painter.setPen(QColor("#555555"))
         painter.setFont(QFont("Segoe UI", 10))
-        painter.drawText(splash_pix.rect().adjusted(0, 370, 0, 0), Qt.AlignmentFlag.AlignCenter, "v1.2.0-stable")
+        painter.drawText(splash_pix.rect().adjusted(0, 370, 0, 0), Qt.AlignmentFlag.AlignCenter, APP_VERSION)
         painter.end()
 
-        # --- Show Animated Splash ---
-        splash = AnimatedSplashScreen(splash_pix)
-        splash.show()
-        move_to_secondary_screen(splash)
-        app.processEvents() 
+        # --- Show Animated Splash (unless disabled in Settings) ---
+        if show_splash:
+            splash = AnimatedSplashScreen(splash_pix, lang)
+            splash.show()
+            move_to_secondary_screen(splash)
+            app.processEvents()
 
         # --- Load Main Window ---
         window = MainWindow()
 
-        # Show main window after ~2.5 seconds (when loading bar finishes)
         def _show_main_window():
             window.show()
             move_to_secondary_screen(window)
 
-        QTimer.singleShot(2500, _show_main_window)
+        if show_splash:
+            # Show main window after ~2.5 seconds (when loading bar finishes)
+            QTimer.singleShot(2500, _show_main_window)
+        else:
+            _show_main_window()
 
         sys.exit(app.exec())
 

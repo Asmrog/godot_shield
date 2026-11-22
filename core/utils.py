@@ -12,6 +12,17 @@ from pathlib import Path
 from typing import Optional
 
 
+def bool_from_setting(value, default: bool = True) -> bool:
+    # QSettings may return bool, int or string depending on how it was written.
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes", "on")
+    return bool(value)
+
+
 def generate_encryption_key() -> str:
     # Generate a 256-bit AES encryption key (64-char hex).
     return secrets.token_hex(32)

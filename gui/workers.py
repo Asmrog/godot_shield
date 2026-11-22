@@ -39,6 +39,7 @@ class ProtectionWorker(QThread):
         level: str,
         output_path: Optional[Path] = None,
         custom_password: Optional[str] = None,
+        auto_backup: bool = True,
         parent=None,
     ) -> None:
         """
@@ -49,13 +50,15 @@ class ProtectionWorker(QThread):
             level: Protection level ("basic" or "standard").
             output_path: Optional output exe path for standard level.
             custom_password: Optional password for AES encryption.
+            auto_backup: Whether the pipeline should create a safety backup.
             parent: Optional parent QObject.
         """
         super().__init__(parent)
         self.project_path = Path(project_path)
         self.level = level
         self.output_path = Path(output_path) if output_path else None
-        self.custom_password = custom_password  # <--- إضافة جديدة
+        self.custom_password = custom_password
+        self.auto_backup = auto_backup
         # Cooperative cancellation flag — checked between pipeline steps
         self._cancelled = False
 
@@ -114,7 +117,8 @@ class ProtectionWorker(QThread):
                 project_path=self.project_path,
                 level=self.level,
                 output_path=self.output_path,
-                custom_password=self.custom_password, 
+                custom_password=self.custom_password,
+                auto_backup=self.auto_backup,
                 progress=progress_callback,
                 logger=logger_callback,
             )

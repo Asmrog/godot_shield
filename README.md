@@ -43,7 +43,7 @@ git clone https://github.com/June-Tree/Godot-Source-Code-Obfuscator.git obfuscat
 
 # Verify installation
 python main.py version
-# Should print: Godot Shield v1.0.0 — MIT License
+# Should print: Godot Shield v1.2.1 — MIT License
 ```
 
 ## Usage

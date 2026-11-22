@@ -52,7 +52,8 @@ def protect_project(
     project_path: Path,
     level: str = "basic",
     output_path: Optional[Path] = None,
-    custom_password: Optional[str] = None,  # <--- تم إضافة هذا السطر لحل المشكلة
+    custom_password: Optional[str] = None,
+    auto_backup: bool = True,
     progress: Optional[Callable[[str, int], None]] = None,
     logger: Optional[Callable[[str, str], None]] = None,
 ) -> ProtectionResult:
@@ -73,6 +74,7 @@ def protect_project(
         output_path: Desired output .exe path for standard level.
                      If None, defaults to <project>/build/game.exe.
         custom_password: Optional password used to derive the AES-256 key.
+        auto_backup: Whether to create a safety backup before obfuscation.
         progress: Callback accepting (step_name, percent) for UI updates.
         logger: Callback accepting (message, severity) where severity is
                 "info", "success", "warning", "error".
@@ -183,23 +185,26 @@ def protect_project(
         progress("Key generated", 20)
 
         # ------------------------------------------------------------------
-        # Step 2.5: Create Automatic Backup
+        # Step 2.5: Create Automatic Backup (can be disabled in Settings)
         # ------------------------------------------------------------------
-        progress("Creating backup", 22)
-        logger("Creating project backup for safety...", "info")
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_dir = project_path.parent / ".godot_shield_backups"
-            backup_dir.mkdir(exist_ok=True)
-            backup_path = backup_dir / f"{project_path.name}_backup_{timestamp}"
-            
-            # Ignore heavy/irrelevant folders
-            ignore_list = shutil.ignore_patterns('.godot', '.git', '__pycache__', 'build')
-            shutil.copytree(project_path, backup_path, ignore=ignore_list)
-            
-            logger(f"✅ Backup created successfully at: {backup_path}", "success")
-        except Exception as e:
-            logger(f"⚠️ Failed to create backup: {e}", "warning")
+        if auto_backup:
+            progress("Creating backup", 22)
+            logger("Creating project backup for safety...", "info")
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_dir = project_path.parent / ".godot_shield_backups"
+                backup_dir.mkdir(exist_ok=True)
+                backup_path = backup_dir / f"{project_path.name}_backup_{timestamp}"
+
+                # Ignore heavy/irrelevant folders
+                ignore_list = shutil.ignore_patterns('.godot', '.git', '__pycache__', 'build')
+                shutil.copytree(project_path, backup_path, ignore=ignore_list)
+
+                logger(f"✅ Backup created successfully at: {backup_path}", "success")
+            except Exception as e:
+                logger(f"⚠️ Failed to create backup: {e}", "warning")
+        else:
+            logger("Auto-backup disabled in settings; skipping backup.", "info")
 
         # ------------------------------------------------------------------
         # Step 3: Obfuscate GDScript

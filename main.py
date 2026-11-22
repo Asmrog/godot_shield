@@ -13,6 +13,7 @@ from typing import Optional
 import typer
 from rich.console import Console
 
+from core.i18n import APP_VERSION
 from core.protector import protect_project
 from core.utils import is_valid_godot_project
 
@@ -166,10 +167,10 @@ def version_command() -> None:
     Show version and license information.
     """
     try:
-        console.print("Godot Shield v1.2.0-stable — MIT License")
+        console.print(f"Godot Shield {APP_VERSION} — MIT License")
     except Exception:
         # Fallback if Rich fails
-        print("Godot Shield v1.2.0-stable — MIT License") 
+        print(f"Godot Shield {APP_VERSION} — MIT License")
 
 
 if __name__ == "__main__":
