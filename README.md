@@ -59,5 +59,4 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ### 🙏 Credits
 * **Obfuscation Engine:** [June-Tree/Godot-Source-Code-Obfuscator](https://github.com/June-Tree/Godot-Source-Code-Obfuscator)
-* **UI Framework:** PySide6<img width="400" height="225" alt="1118" src="https://github.com/user-attachments/assets/b15a9262-ce20-4d09-ac6d-603e0b1c1f77" />
-<img width="400" height="225" alt="1118" src="https://github.com/user-attachments/assets/69343274-d02d-4747-90ea-0741a49b8f53" />
+* **UI Framework:** PySide6
