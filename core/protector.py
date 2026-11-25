@@ -14,7 +14,7 @@ from typing import Callable, Optional
 import shutil
 from datetime import datetime
 
-from .exporter import export_game
+from .exporter import ExportResult, export_game
 from .obfuscator import run_obfuscation
 from .utils import (
     ensure_output_dir,
@@ -38,6 +38,7 @@ class ProtectionResult:
         exported: Whether encrypted export succeeded (only relevant for standard level).
         output_path: Path to exported executable if available.
         error_message: Human-readable error message if success is False.
+        error_key: Optional i18n key for a translated version of error_message.
     """
 
     success: bool
@@ -46,6 +47,7 @@ class ProtectionResult:
     exported: bool
     output_path: Optional[Path]
     error_message: Optional[str] = None
+    error_key: Optional[str] = None
 
 
 def protect_project(
@@ -285,8 +287,9 @@ def protect_project(
                 # Per spec: if Godot not installed, still obfuscate and tell user export was skipped
                 if godot_path:
                     detail = (
-                        f"The configured custom path is invalid: {godot_path}. "
-                        "Fix it in Settings or clear it to use the system PATH."
+                        f"The configured custom path is invalid or missing: {godot_path}. "
+                        "Godot was also not found on the system PATH. "
+                        "Fix it in Settings or add Godot to your PATH."
                     )
                 else:
                     detail = (
@@ -307,25 +310,41 @@ def protect_project(
                     exported=False,
                     output_path=output_path,
                     error_message="Export skipped: Godot executable not found.",
+                    error_key="export_error_godot_missing",
                 )
 
             progress("Exporting encrypted build", 70)
             logger("Starting encrypted export...", "info")
 
+            export_error_message = None
+            export_error_key = None
             try:
-                exported = export_game(
+                export_outcome = export_game(
                     project_path,
                     output_path,
                     encryption_key,
                     logger,
                     godot_path=godot_path,
                 )
+                if isinstance(export_outcome, ExportResult):
+                    exported = export_outcome.success
+                    export_error_message = export_outcome.error_message
+                    export_error_key = export_outcome.error_key
+                else:
+                    # Tolerate legacy callers/mocks that return a plain bool.
+                    exported = bool(export_outcome)
             except Exception as exc:
                 logger(f"Exception during export: {exc}", "error")
                 exported = False
+                export_error_message = f"Export failed: {exc}"
+                export_error_key = "export_error_unexpected"
 
             if not exported:
-                error_msg = "Export failed. Check that export templates are installed and 'Windows Desktop' preset exists."
+                error_msg = (
+                    export_error_message
+                    or "Export failed: Make sure you have installed Export Templates "
+                    "in Godot and created a 'Windows Desktop' preset."
+                )
                 logger(error_msg, "error")
                 progress("Export failed", 100)
                 return ProtectionResult(
@@ -335,6 +354,7 @@ def protect_project(
                     exported=False,
                     output_path=output_path,
                     error_message=error_msg,
+                    error_key=export_error_key,
                 )
 
             progress("Export completed", 100)

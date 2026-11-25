@@ -1,5 +1,5 @@
 """
-Main PySide6 window for Godot Shield v1.2.1
+Main PySide6 window for Godot Shield v1.2.2
 """
 
 from __future__ import annotations
@@ -935,11 +935,25 @@ class MainWindow(QMainWindow):
         else:
             self._status_key = "status_failed"
             self.status_label.setText(get_text(self.current_lang, "status_failed"))
-            self.log_view.append_colored(f"Failed: {result.error_message}", "error")
+            detail = result.error_message or ""
+            self.log_view.append_colored(f"Failed: {detail}", "error")
+
+            # Prefer a translated message when the backend supplied an i18n key,
+            # but keep Godot's raw stderr detail in the popup when available.
+            error_key = getattr(result, "error_key", None)
+            if error_key:
+                translated = get_text(self.current_lang, error_key)
+                english = get_text("en", error_key)
+                if translated != error_key:
+                    if detail and detail.strip() not in english:
+                        detail = f"{translated}\n\n{detail}"
+                    else:
+                        detail = translated
+
             QMessageBox.critical(
                 self,
                 get_text(self.current_lang, "failed_title"),
-                f"{get_text(self.current_lang, 'error_prefix')} {result.error_message}",
+                f"{get_text(self.current_lang, 'error_prefix')} {detail}",
             )
         self._worker = None
 

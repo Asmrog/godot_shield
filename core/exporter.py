@@ -10,10 +10,62 @@ from __future__ import annotations
 
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
+from .i18n import get_text
 from .utils import ensure_output_dir, find_godot_executable
+
+
+@dataclass
+class ExportResult:
+    """Outcome of an export attempt.
+
+    ``bool(result)`` mirrors ``result.success`` so existing ``if export_game(...)``
+    call sites keep working, while callers that care about the details can read
+    ``error_message`` / ``error_key``.
+    """
+
+    success: bool
+    error_message: Optional[str] = None
+    error_key: Optional[str] = None
+    stderr: str = ""
+
+    def __bool__(self) -> bool:
+        return self.success
+
+
+def _log(logger: Callable[[str, str], None], message: str, severity: str) -> None:
+    try:
+        logger(message, severity)
+    except Exception:
+        pass
+
+
+def _failure(error_key: str, detail: str = "", stderr: str = "") -> ExportResult:
+    """Build a user-friendly failure result, keeping the raw Godot output."""
+    message = get_text("en", error_key)
+    detail = (detail or "").strip()
+    if detail and detail.lower() not in message.lower():
+        message = f"{message}\nGodot said: {detail}"
+    return ExportResult(
+        success=False,
+        error_message=message,
+        error_key=error_key,
+        stderr=stderr or detail,
+    )
+
+
+def _classify_failure(output: str) -> str:
+    """Map Godot's stderr/stdout onto the most helpful i18n error message."""
+    text = (output or "").lower()
+    if "permission denied" in text or "access is denied" in text:
+        return "export_error_output_path"
+    if "template" in text or "preset" in text:
+        return "export_error_templates"
+    # Godot's generic export failure is almost always templates/preset related.
+    return "export_error_templates"
 
 
 def export_game(
@@ -22,7 +74,7 @@ def export_game(
     encryption_key: str,
     logger: Callable[[str, str], None],
     godot_path: Optional[str] = None,
-) -> bool:
+) -> ExportResult:
     """
     Export the Godot project with AES-256 PCK encryption.
 
@@ -36,158 +88,126 @@ def export_game(
         encryption_key: 64-char hex string for AES-256 encryption.
         logger: Callback accepting (message, severity).
         godot_path: Optional custom Godot executable path from Settings.
-                    Empty/None means use the system PATH.
+                    Empty or invalid values fall back to the system PATH.
 
     Returns:
-        True if export succeeded and output file exists, False otherwise.
+        ExportResult. Truthy on success; on failure ``error_message`` holds a
+        clear, user-friendly explanation (including Godot's stderr details).
     """
     try:
         project_path = Path(project_path).resolve()
         output_exe = Path(output_exe).resolve()
-
-        # Step 1: Locate Godot executable (custom path wins over PATH)
-        godot_exe = find_godot_executable(godot_path)
-        if godot_exe is None:
-            if godot_path:
-                logger(
-                    f"Custom Godot executable path is invalid or missing: {godot_path}. "
-                    "Export will be skipped.",
-                    "warning",
-                )
-            else:
-                logger(
-                    "Godot executable not found in PATH. Searched for 'godot' and 'godot4'. "
-                    "Export will be skipped. Please install Godot 4.x and add it to PATH.",
-                    "warning",
-                )
-            return False
-
-        logger(f"Found Godot executable: {godot_exe}", "info")
-
-        # Step 2: Ensure output directory exists
-        try:
-            ensure_output_dir(output_exe)
-            logger(f"Output directory ensured: {output_exe.parent}", "info")
-        except OSError as ose:
-            logger(f"Failed to create output directory: {ose}", "error")
-            return False
-
-        # Step 3: Prepare environment with encryption key
-        env = os.environ.copy()
-        env["GODOT_SCRIPT_ENCRYPTION_KEY"] = encryption_key
-        logger("Encryption key injected into environment (AES-256).", "info")
-        # Do not log the actual key for security
-
-        # Step 4: Build export command
-        # Command: godot --headless --path <project> --export-release "Windows Desktop" <output>
-        cmd = [
-            str(godot_exe),
-            "--headless",
-            "--path",
-            str(project_path),
-            "--export-release",
-            "Windows Desktop",
-            str(output_exe),
-        ]
-
-        logger(f"Running export command: {' '.join(cmd)}", "info")
-        logger(f"Export preset: 'Windows Desktop' -> {output_exe}", "info")
-
-        # Step 5: Execute export process
-        try:
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=env,
-                cwd=str(project_path),
-                bufsize=1,
-            )
-
-            try:
-                stdout, stderr = process.communicate(timeout=600)
-            except subprocess.TimeoutExpired:
-                try:
-                    process.kill()
-                    process.communicate()
-                except Exception:
-                    pass
-                logger("Game export timed out after 600 seconds.", "error")
-                return False
-
-            # Step 6: Stream logs
-            if stdout:
-                for line in stdout.splitlines():
-                    stripped = line.strip()
-                    if stripped:
-                        if "error" in stripped.lower():
-                            logger(stripped, "error")
-                        elif "warning" in stripped.lower():
-                            logger(stripped, "warning")
-                        else:
-                            logger(stripped, "info")
-
-            if stderr:
-                for line in stderr.splitlines():
-                    stripped = line.strip()
-                    if stripped:
-                        # Godot often prints progress to stderr
-                        if "error" in stripped.lower():
-                            logger(stripped, "error")
-                        else:
-                            logger(stripped, "info")
-
-            # Step 7: Validate output
-            if process.returncode != 0:
-                logger(
-                    f"Godot export failed with exit code {process.returncode}. "
-                    "Ensure you have export templates installed and a 'Windows Desktop' "
-                    "preset configured in your project.",
-                    "error",
-                )
-                return False
-
-            if not output_exe.exists():
-                logger(
-                    f"Export command finished but output file not found: {output_exe}. "
-                    "Check Godot export preset configuration.",
-                    "error",
-                )
-                return False
-
-            # Success: report file size
-            try:
-                size = output_exe.stat().st_size
-                from .utils import format_size
-
-                size_str = format_size(size)
-                logger(
-                    f"Export successful: {output_exe} ({size_str})", "success"
-                )
-                # Also check for .pck file that Godot may create alongside
-                pck_path = output_exe.with_suffix(".pck")
-                if pck_path.exists():
-                    pck_size = format_size(pck_path.stat().st_size)
-                    logger(f"PCK file created: {pck_path} ({pck_size})", "info")
-            except Exception:
-                logger(f"Export successful: {output_exe}", "success")
-
-            return True
-
-        except FileNotFoundError as fnf:
-            logger(f"Failed to launch Godot executable: {fnf}", "error")
-            return False
-        except PermissionError as perm:
-            logger(f"Permission denied running Godot: {perm}", "error")
-            return False
-        except Exception as exc:
-            logger(f"Unexpected error during export: {exc}", "error")
-            return False
-
     except Exception as exc:
+        return _failure("export_error_output_path", str(exc))
+
+    if output_exe.is_dir():
+        return _failure(
+            "export_error_output_path", f"Output path is a directory: {output_exe}"
+        )
+
+    # Step 1: Locate Godot executable. A valid custom path wins; an invalid or
+    # empty one makes find_godot_executable() fall back to the system PATH.
+    godot_exe = find_godot_executable(godot_path)
+    if godot_exe is None:
+        detail = (
+            f"Custom Godot path is invalid: {godot_path}. "
+            if godot_path
+            else ""
+        ) + "No 'godot' or 'godot4' executable found on PATH."
+        _log(logger, detail, "error")
+        return _failure("export_error_godot_missing", detail)
+
+    _log(logger, f"Found Godot executable: {godot_exe}", "info")
+
+    # Step 2: Ensure output directory exists
+    try:
+        ensure_output_dir(output_exe)
+        _log(logger, f"Output directory ensured: {output_exe.parent}", "info")
+    except OSError as ose:
+        return _failure("export_error_output_path", str(ose))
+
+    # Step 3: Prepare environment with encryption key
+    env = os.environ.copy()
+    env["GODOT_SCRIPT_ENCRYPTION_KEY"] = encryption_key
+    _log(logger, "Encryption key injected into environment (AES-256).", "info")
+    # Do not log the actual key for security
+
+    # Step 4: Build export command
+    cmd = [
+        str(godot_exe),
+        "--headless",
+        "--path",
+        str(project_path),
+        "--export-release",
+        "Windows Desktop",
+        str(output_exe),
+    ]
+
+    _log(logger, f"Running export command: {' '.join(cmd)}", "info")
+    _log(logger, f"Export preset: 'Windows Desktop' -> {output_exe}", "info")
+
+    # Step 5: Execute export process
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            cwd=str(project_path),
+            bufsize=1,
+        )
+    except (FileNotFoundError, PermissionError, OSError) as exc:
+        return _failure("export_error_launch", str(exc))
+
+    try:
+        stdout, stderr = process.communicate(timeout=600)
+    except subprocess.TimeoutExpired:
         try:
-            logger(f"Critical error in exporter wrapper: {exc}", "error")
+            process.kill()
+            process.communicate()
         except Exception:
             pass
-        return False
+        return _failure("export_error_timeout", "Exceeded the 600 second limit.")
+
+    stdout = stdout or ""
+    stderr = stderr or ""
+
+    # Step 6: Stream logs (Godot writes progress to stderr as well as stdout).
+    for stream in (stdout, stderr):
+        for line in stream.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            severity = (
+                "error" if "error" in stripped.lower()
+                else "warning" if "warning" in stripped.lower()
+                else "info"
+            )
+            _log(logger, stripped, severity)
+
+    # Step 7: Validate the result.
+    if process.returncode != 0:
+        detail = stderr.strip() or stdout.strip() or f"exit code {process.returncode}"
+        _log(logger, f"Godot export failed with exit code {process.returncode}.", "error")
+        return _failure(_classify_failure(f"{stdout}\n{stderr}"), detail, stderr)
+
+    if not output_exe.exists():
+        detail = f"Export command finished but output file not found: {output_exe}"
+        _log(logger, detail, "error")
+        return _failure("export_error_output_path", detail, stderr)
+
+    # Success: report file size
+    try:
+        from .utils import format_size
+
+        size_str = format_size(output_exe.stat().st_size)
+        _log(logger, f"Export successful: {output_exe} ({size_str})", "success")
+        pck_path = output_exe.with_suffix(".pck")
+        if pck_path.exists():
+            pck_size = format_size(pck_path.stat().st_size)
+            _log(logger, f"PCK file created: {pck_path} ({pck_size})", "info")
+    except Exception:
+        _log(logger, f"Export successful: {output_exe}", "success")
+
+    return ExportResult(success=True)

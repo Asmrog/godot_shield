@@ -64,19 +64,19 @@ def is_valid_godot_project(path: Path) -> bool:
 
 
 def find_godot_executable(custom_path: Optional[Path | str] = None) -> Optional[Path]:
-    """Locate Godot, preferring a custom executable path from Settings.
+    """Locate Godot, preferring a valid custom path from Settings.
 
-    An explicitly configured path is authoritative: if it is invalid we do
-    not silently fall back to a different Godot found on PATH.
+    A configured path is used directly when it points to a real file. If it is
+    empty, invalid, or unreadable we fall back to searching PATH for
+    ``godot`` / ``godot4`` instead of giving up.
     """
     if custom_path:
         try:
             candidate = Path(custom_path).expanduser()
             if candidate.is_file():
                 return candidate.resolve()
-            return None
         except Exception:
-            return None
+            pass  # fall through to PATH lookup
 
     # Search PATH for godot or godot4.
     try:

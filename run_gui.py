@@ -1,5 +1,5 @@
 """
-GUI entry point for Godot Shield v1.2.1
+GUI entry point for Godot Shield v1.2.2
 """
 
 from __future__ import annotations

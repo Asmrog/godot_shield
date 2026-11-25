@@ -36,7 +36,7 @@ class UpdateCheckResult:
 
 
 def _version_tuple(version: str) -> tuple[int, int, int]:
-    """Turn 'v1.2.1' or '1.3.0-beta' into a comparable (1, 2, 1) tuple."""
+    """Turn 'v1.2.2' or '1.3.0-beta' into a comparable (1, 2, 2) tuple."""
     cleaned = str(version or "").strip().lstrip("vV")
     cleaned = re.split(r"[-+]", cleaned, maxsplit=1)[0]
     parts: list[int] = []
