@@ -1,165 +1,72 @@
-# Godot Shield 
-![Godot-Shield](screenshot.png)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+# 🛡️ Godot Shield
 
-**Automated protection for Godot games — obfuscation + encryption.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Release](https://img.shields.io/badge/Release-v1.2.2-success.svg)](https://github.com/Asmrog/godot_shield/releases)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
 
-> **Disclaimer:** No tool can prevent 100% reverse engineering. Godot Shield applies industry best practices (GDScript obfuscation + AES-256 PCK encryption + debug symbol removal) automatically, raising the bar for casual attackers. Determined reverse engineers with sufficient time and resources can still decompile or analyze your game. Use this as one layer of defense, not a guarantee.
+**Automated protection for Godot games — GDScript Obfuscation + AES-256 PCK Encryption.**
+
+Godot Shield is a modern, open-source desktop tool that helps indie developers protect their games from casual reverse engineering and asset ripping. It provides a simple one-click pipeline to obfuscate your code and encrypt your game assets.
+
+> **Demo:** *(Insert your video/GIF here)*
+
+
+> `![Godot Shield Demo](screenshot.png)`
 
 ---
 
-## Features
+## ✨ Features (v1.2.2)
 
-- **GDScript Obfuscation** — Renames variables, functions, strips comments and whitespace using [June-Tree/Godot-Source-Code-Obfuscator](https://github.com/June-Tree/Godot-Source-Code-Obfuscator).
-- **AES-256 PCK Encryption** — Exports with `GODOT_SCRIPT_ENCRYPTION_KEY` for encrypted `.pck` data.
-- **Windows Export** — One-click export to `Windows Desktop` preset via Godot headless.
-- **Two Protection Levels:**
-  - `Basic`: Obfuscation only (fast, no Godot needed for export).
-  - `Standard`: Obfuscation + encrypted export (requires Godot 4.x + templates).
-- **CLI + GUI** — Use `main.py` for automation/CI or `run_gui.py` for desktop UX.
-- **Cross-Platform** — Primary target Windows, works on Linux/macOS.
-- **Dark Themed GUI** — PySide6 with Figma blue accent, progress bar, colored logs, cancel support.
+* 🖥️ **Standalone EXE:** No Python installation required for the GUI. Just download and run.
+* 🌍 **Multi-Language Support:** Fully translated UI (English, Arabic, Chinese, Korean, German) with native RTL support for Arabic.
+* 🎨 **Modern UI:** A sleek, developer-focused interface with Dark and Light themes.
+* 🔐 **Custom Encryption:** Generate a strong AES-256 key or use your own custom password.
+* 💾 **Auto-Backups:** Automatically creates a full backup of your project before touching any files.
+* 🔄 **Auto-Updater:** Checks for new releases on startup so you never miss an update.
+* 🛡️ **Safe Mapping:** The obfuscation mapping file is securely moved to a hidden folder so you never ship it by accident.
 
-## Installation
+---
 
+## 📦 How to Install & Use (Recommended)
+
+1. Go to the **[Releases](https://github.com/Asmrog/godot_shield/releases)** page.
+2. Download the latest `GodotShield_vX.X.X.zip` file.
+3. Extract the ZIP file to a folder of your choice.
+4. Double-click `GodotShield.exe`.
+5. Select your Godot project folder, choose your protection level, and click **Protect Game**.
+
+*Note: The `obfuscator` folder must stay in the same directory as `GodotShield.exe`.*
+
+### 🛠️ Running from Source (For Developers)
 ```bash
-# Clone the repo
-git clone <your-repo-url> godot-shield
-cd godot-shield
-
-# Create virtual environment
+git clone https://github.com/Asmrog/godot_shield.git
+cd godot_shield
 python -m venv venv
-
-# Activate (Windows)
-venv\Scripts\activate
-# Or on Unix/macOS
-# source venv/bin/activate
-
-# Install dependencies
+venv\Scripts\activate  # Windows
 pip install -r requirements.txt
-
-# Clone the external obfuscator (required)
 git clone https://github.com/June-Tree/Godot-Source-Code-Obfuscator.git obfuscator
-
-# Verify installation
-python main.py version
-# Should print: Godot Shield v1.2.2 — MIT License
-```
-
-## Usage
-
-### CLI
-
-```bash
-# Basic protection (obfuscation only)
-python main.py protect /path/to/your/godot/project --level basic
-
-# Standard protection (obfuscation + encrypted export)
-python main.py protect /path/to/your/godot/project --level standard --output /path/to/build/game.exe
-
-# Default output for standard is <project>/build/game.exe if --output not specified
-python main.py protect ./my-game --level standard
-
-# Show version
-python main.py version
-```
-
-**CLI Output Example:**
-```
- Godot Shield — Protection Pipeline 
-Project: C:\Users\Dev\MyGame
-Level: standard
-
-[  5%] Validating project
-[INFO] Validating Godot project: ...
-[SUCCESS] Encryption key generated (64-char hex, 256-bit).
-[ 25%] Obfuscating GDScript
-...
-✓ Protection completed successfully!
-```
-
-### GUI
-
-```bash
 python run_gui.py
-```
 
-1. Click **Browse...** and select your Godot project folder (must contain `project.godot`).
-2. Choose protection level:
-   - **Basic**: Obfuscates GDScript in place.
-   - **Standard**: Obfuscates + exports encrypted `.exe`.
-3. For Standard, select output `.exe` path (default: `<project>/build/game.exe`).
-4. Click **Protect Game**.
-5. Watch progress bar and colored logs. Use **Cancel** to stop.
-6. On success, click **Open Folder** to view build.
+⚠️ Requirements for "Standard" Export
 
-## Requirements
+To export an encrypted .exe file, you must have:
 
-- **Python 3.10+**
-- **Godot 4.x** installed and in PATH (`godot` or `godot4` executable):
-  - Windows: Add Godot folder to system PATH or rename binary to `godot.exe`.
-  - Linux/macOS: Ensure `godot` is executable and in `/usr/local/bin` or similar.
-- **Export Templates** installed in Godot:
-  - In Godot Editor: `Editor > Manage Export Templates > Download`.
-- **Windows Desktop Export Preset** configured in your project:
-  - In Godot Editor: `Project > Export > Add... > Windows Desktop`, name it exactly `Windows Desktop`, configure output.
-- **External Obfuscator** cloned:
-  ```bash
-  git clone https://github.com/June-Tree/Godot-Source-Code-Obfuscator.git obfuscator
-  ```
-  The tool looks for `obfuscator/scripts/gdscript_obfuscator.py`.
+    Godot 4.x installed and added to your system PATH (or set a custom path in Settings).
 
-## Project Structure
+    Export Templates downloaded in the Godot Editor.
 
-```
-godot-shield/
-├── main.py                     # CLI entry point (Typer)
-├── run_gui.py                  # GUI entry point
-├── requirements.txt
-├── README.md
-├── LICENSE
-├── .gitignore
-├── core/
-│   ├── __init__.py
-│   ├── protector.py            # Orchestrates full pipeline
-│   ├── obfuscator.py           # GDScript obfuscation wrapper
-│   ├── exporter.py             # Godot export wrapper
-│   └── utils.py                # Shared helpers
-├── gui/
-│   ├── __init__.py
-│   ├── app.py                  # Main PySide6 window + dark QSS
-│   ├── widgets.py              # ColoredLogView, FolderPicker
-│   └── workers.py              # QThread worker
-└── obfuscator/                 # Cloned external repo (gitignored)
-```
+    A "Windows Desktop" export preset configured in your Godot project.
 
-## Security & Limitations
-No local encryption is 100% bulletproof. As any experienced reverse engineer knows, if the game engine needs to decrypt the `.pck` file to run, the AES-256 key *must* be stored somewhere inside the executable. A skilled attacker with tools like `gore` or memory dumpers can extract this key.
+(If these are missing, Godot Shield will still perform the "Basic" obfuscation and warn you about the export failure).
+⚠️ The Honest Truth (Disclaimer)
 
-**Godot Shield is designed to:**
-1. Stop 95% of casual "script kiddies" who just drag-and-drop assets into a decompiler.
-2. Automate the tedious process of generating keys, obfuscating code, and exporting.
-3. Automatically secure the obfuscation mapping file so it doesn't accidentally get shipped with your game. 
+No local software encryption is 100% bulletproof. If the game engine can read the code to run it, a skilled reverse engineer can extract it. Godot Shield is designed to stop 95% of casual asset rippers and script kiddies, raising the barrier significantly without requiring you to rewrite your entire game in C++.
+🙏 Credits
 
-If you need military-grade protection against professional reverse engineers, you must rewrite your critical logic in C++ (using GDExtension) or use custom Godot engine builds with advanced packing.
+    Obfuscation Engine: June-Tree/Godot-Source-Code-Obfuscator
 
-- **"Obfuscator script not found"** — Clone the repo into `obfuscator/` as described in Installation.
-- **"Godot executable not found"** — Install Godot 4.x and add to PATH. On Windows, ensure `godot.exe` is in PATH or rename.
-- **Export fails with "export templates missing"** — Open Godot Editor and download export templates.
-- **Export fails with "preset not found"** — Create a Windows Desktop preset named exactly `Windows Desktop` in Project > Export.
-- **GUI freezes** — Should not happen; protection runs in QThread. If it does, check logs and report issue.
+    UI Framework: PySide6
 
-## License
+    License: MIT License Ibrahim Anouer 
 
-MIT License — see [LICENSE](LICENSE). Copyright (c) 2026 Godot Shield.
-
-## Credits
-
-- **Obfuscation engine:** [June-Tree/Godot-Source-Code-Obfuscator](https://github.com/June-Tree/Godot-Source-Code-Obfuscator) — MIT License.
-- **Engine:** [Godot Engine](https://godotengine.org) — MIT License.
-- **UI Framework:** [PySide6](https://doc.qt.io/qtforpython/) — LGPL.
-- **CLI Framework:** [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/).
-
----
-
-Made with care for Godot developers who want to protect their games with minimal friction.
+Made with ❤️ for the Godot community.
