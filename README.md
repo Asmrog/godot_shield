@@ -15,9 +15,6 @@ Godot Shield is a modern, open-source desktop tool designed to help indie develo
 
 <img width="400" height="225" alt="1118" src="https://github.com/user-attachments/assets/fd7677e9-272c-4bf8-800b-cdef9cf9b1cc" />
 
-
-*(Note: If you prefer a GIF, simply drag and drop your `.gif` file here and replace the code above).*
-
 ---
 
 ## ✨ Features
